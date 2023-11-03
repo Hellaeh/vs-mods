@@ -1,0 +1,13 @@
+{
+  "type": "code",
+  "modid": "blockpick",
+  "name": "Block Pick",
+  "authors": [
+    "Hellaeh"
+  ],
+  "description": "Imitates creative mode middle click on hotkey",
+  "version": "1.0.0",
+  "dependencies": {
+    "game": "1.18.15"
+  }
+}

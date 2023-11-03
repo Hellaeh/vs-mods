@@ -1,0 +1,8 @@
+vsapi
+vscreativemod
+vssurvivalmod
+
+**/bin
+**/debug
+**/obj
+**/release
