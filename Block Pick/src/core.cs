@@ -5,7 +5,7 @@ using Vintagestory.API.Common;
 using Vintagestory.API.Config;
 using Vintagestory.API.Server;
 
-namespace BlockPick;
+namespace HelBlockPick;
 
 [ProtoContract]
 public class Packet
@@ -18,7 +18,7 @@ public class Packet
 
 public class Core : ModSystem
 {
-	private const string ModId = "blockpick";
+	private const string ModId = "helblockpick";
 	private const string HotKey = ModId + "hotkey";
 	private const string Channel = ModId + "channel";
 
