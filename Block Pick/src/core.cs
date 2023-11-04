@@ -11,9 +11,7 @@ namespace HelBlockPick;
 public class Packet
 {
 	[ProtoMember(1)]
-	public int SlotIdx;
-	[ProtoMember(2)]
-	public string InventoryId;
+	public int Payload;
 }
 
 public class Core : ModSystem
@@ -44,7 +42,7 @@ public class Core : ModSystem
 	{
 		base.StartClientSide(api);
 
-		api.Input.RegisterHotKey(HotKey, Lang.Get(ModId + ":hotkey"), GlKeys.Q, HotkeyType.HelpAndOverlays);
+		api.Input.RegisterHotKey(HotKey, Lang.Get(ModId + ":hotkey"), GlKeys.Q, HotkeyType.CharacterControls);
 		api.Input.SetHotKeyHandler(HotKey, _ => HotKeyHandler(api));
 
 		cChannel = api.Network.GetChannel(Channel);
@@ -53,12 +51,12 @@ public class Core : ModSystem
 	private void ChannelHandler(IServerPlayer player, Packet packet)
 	{
 		var inv = player.InventoryManager;
-
 		var currentSlot = inv.ActiveHotbarSlot;
 
 		// WARNING: Should check for `null`? Technically it's checked on client, but with latency and whatnot
 		// this might be `null`. Leaving a comment here for future.
-		var swapSlot = inv.GetInventory(packet.InventoryId)[packet.SlotIdx];
+		var swapInv = inv.GetOwnInventory(GlobalConstants.backpackInvClassName);
+		var swapSlot = swapInv[packet.Payload];
 
 		currentSlot.TryFlipWith(swapSlot);
 		currentSlot.MarkDirty();
@@ -68,31 +66,32 @@ public class Core : ModSystem
 	{
 		var player = api.World.Player;
 		var lookingAt = player.CurrentBlockSelection;
-		var currentSlot = player.InventoryManager.ActiveHotbarSlot;
 
-		if (lookingAt == null || currentSlot == null)
+		if (lookingAt == null)
 			return false;
 
 		var lookingAtId = lookingAt.Block.OnPickBlock(api.World, lookingAt.Position).Id;
 
 		var hotbarInv = player.InventoryManager.GetOwnInventory(GlobalConstants.hotBarInvClassName);
-		int idx = SearchInventory(hotbarInv, lookingAtId);
+		int swapIdx = SearchInventory(hotbarInv, lookingAtId);
 
-		if (idx >= 0)
+		if (swapIdx >= 0)
 		{
-			player.InventoryManager.ActiveHotbarSlotNumber = idx;
+			player.InventoryManager.ActiveHotbarSlotNumber = swapIdx;
 			return true;
 		}
 
 		var backpackInv = player.InventoryManager.GetOwnInventory(GlobalConstants.backpackInvClassName);
-		idx = SearchInventory(backpackInv, lookingAtId);
+		swapIdx = SearchInventory(backpackInv, lookingAtId);
 
-		if (idx >= 0)
+		if (swapIdx >= 0)
 		{
+			var bestSlotIdx = GetBestSuitedHotbarSlot(player, backpackInv, backpackInv[swapIdx]);
+			player.InventoryManager.ActiveHotbarSlotNumber = bestSlotIdx;
+
 			Packet packet = new()
 			{
-				InventoryId = backpackInv.InventoryID,
-				SlotIdx = idx
+				Payload = swapIdx
 			};
 
 			cChannel.SendPacket<Packet>(packet);
@@ -119,6 +118,35 @@ public class Core : ModSystem
 		}
 
 		return -1;
+	}
+
+	private int GetBestSuitedHotbarSlot(IPlayer player, IInventory inv, ItemSlot slot)
+	{
+		var bestSlot = player.InventoryManager.GetBestSuitedHotbarSlot(inv, slot);
+		var bestSlotIdx = bestSlot?.Inventory?.GetSlotId(bestSlot) ?? -1;
+
+		if (bestSlotIdx == -1)
+		{
+			if (player.InventoryManager.ActiveTool == null)
+				return player.InventoryManager.ActiveHotbarSlotNumber;
+
+			var hotbarInv = player.InventoryManager.GetHotbarInventory();
+
+			for (int i = 0; i < hotbarInv.Count; ++i)
+			{
+				var currentSlot = hotbarInv[i];
+
+				if (currentSlot.Empty)
+					return i;
+
+				if (currentSlot.Itemstack?.Item?.Tool == null)
+					return i;
+			}
+
+			return 9;
+		}
+
+		return bestSlotIdx;
 	}
 }
 
