@@ -69,10 +69,10 @@ public class Core : ModSystem
 			return false;
 
 		// FIXME: This returns wrong `Block` for some blocks (e.g. planks)
-		var lookingAtId = lookingAt.Block.OnPickBlock(api.World, lookingAt.Position).Id;
+		var lookingAtItemStack = lookingAt.Block.OnPickBlock(api.World, lookingAt.Position);
 
 		var swapInv = player.InventoryManager.GetOwnInventory(GlobalConstants.hotBarInvClassName);
-		int swapIdx = SearchInventory(swapInv, lookingAtId);
+		int swapIdx = SearchInventory(swapInv, lookingAtItemStack);
 
 		if (swapIdx >= 0)
 		{
@@ -81,7 +81,7 @@ public class Core : ModSystem
 		}
 
 		swapInv = player.InventoryManager.GetOwnInventory(GlobalConstants.backpackInvClassName);
-		swapIdx = SearchInventory(swapInv, lookingAtId);
+		swapIdx = SearchInventory(swapInv, lookingAtItemStack);
 
 		if (swapIdx >= 0)
 		{
@@ -101,7 +101,7 @@ public class Core : ModSystem
 		return false;
 	}
 
-	private int SearchInventory(IInventory inv, int lookFor)
+	private int SearchInventory(IInventory inv, ItemStack lookFor)
 	{
 		for (int i = 0; i < inv.Count; ++i)
 		{
@@ -110,9 +110,7 @@ public class Core : ModSystem
 			if (slot.Empty)
 				continue;
 
-			var stackId = slot.Itemstack.Id;
-
-			if (stackId == lookFor)
+			if (lookFor.Satisfies(slot.Itemstack))
 				return i;
 		}
 
