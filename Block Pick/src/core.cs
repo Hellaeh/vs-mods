@@ -20,6 +20,9 @@ public class Core : ModSystem
 	private const string HotKey = ModId + "hotkey";
 	private const string Channel = ModId + "channel";
 
+	private static IClientNetworkChannel cChannel = null;
+	private static ICoreClientAPI cApi = null;
+
 	public override void Start(ICoreAPI api)
 	{
 		base.Start(api);
@@ -43,7 +46,12 @@ public class Core : ModSystem
 		var channel = api.Network.GetChannel(Channel);
 
 		api.Input.RegisterHotKey(HotKey, Lang.Get(ModId + ":hotkey"), GlKeys.Q, HotkeyType.CharacterControls);
-		api.Input.SetHotKeyHandler(HotKey, _ => HotKeyHandler(api, channel));
+		api.Input.SetHotKeyHandler(HotKey, _ => HotKeyHandler());
+
+		api.Event.MouseDown += OnMouseDown;
+
+		cApi = api;
+		cChannel = channel;
 	}
 
 	private void ChannelHandler(IServerPlayer player, Packet packet)
@@ -60,16 +68,27 @@ public class Core : ModSystem
 		currentSlot.MarkDirty();
 	}
 
-	private bool HotKeyHandler(ICoreClientAPI api, IClientNetworkChannel channel)
+	private void OnMouseDown(MouseEvent e)
 	{
-		var player = api.World.Player;
+		if (e.Button != EnumMouseButton.Middle)
+			return;
+
+		if (cApi.World.Player.WorldData.CurrentGameMode != EnumGameMode.Survival)
+			return;
+
+		e.Handled = HotKeyHandler();
+	}
+
+	private bool HotKeyHandler()
+	{
+		var player = cApi.World.Player;
 		var lookingAt = player.CurrentBlockSelection;
 
 		if (lookingAt == null)
 			return false;
 
 		// FIXME: This returns wrong `Block` for some blocks (e.g. planks)
-		var lookingAtItemStack = lookingAt.Block.OnPickBlock(api.World, lookingAt.Position);
+		var lookingAtItemStack = lookingAt.Block.OnPickBlock(cApi.World, lookingAt.Position);
 
 		var swapInv = player.InventoryManager.GetOwnInventory(GlobalConstants.hotBarInvClassName);
 		int swapIdx = SearchInventory(swapInv, lookingAtItemStack);
@@ -93,7 +112,7 @@ public class Core : ModSystem
 				Payload = swapIdx
 			};
 
-			channel.SendPacket<Packet>(packet);
+			cChannel.SendPacket<Packet>(packet);
 
 			return true;
 		}
