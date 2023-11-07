@@ -11,7 +11,9 @@ if (-not (test-path $path)) {
 }
 
 $modname = $path -replace '\s+', '';
-$moddest = "$($env:APPDATA)\VintagestoryData\Mods\$($modname).zip";
+$modbuild = "$path\release";
+$moddest = "$env:APPDATA\VintagestoryData\Mods\$modname.zip";
 
-dotnet build --no-incremental $path &&
-	compress-archive $path\release\* -destinationpath "$moddest" -force;
+rm -recurse -force $modbuild &&
+	dotnet build --no-incremental $path &&
+	compress-archive "$modbuild\*" -destinationpath "$moddest" -force;
