@@ -20,8 +20,8 @@ public class Core : ModSystem
 	private const string HotKey = ModId + "hotkey";
 	private const string Channel = ModId + "channel";
 
-	private static IClientNetworkChannel cChannel = null;
-	private static ICoreClientAPI cApi = null;
+	private static IClientNetworkChannel cChannel;
+	private static ICoreClientAPI cApi;
 
 	public override void Start(ICoreAPI api)
 	{
@@ -54,7 +54,7 @@ public class Core : ModSystem
 		cChannel = channel;
 	}
 
-	private void ChannelHandler(IServerPlayer player, Packet packet)
+	private static void ChannelHandler(IServerPlayer player, Packet packet)
 	{
 		var inv = player.InventoryManager;
 		var currentSlot = inv.ActiveHotbarSlot;
@@ -68,7 +68,7 @@ public class Core : ModSystem
 		currentSlot.MarkDirty();
 	}
 
-	private void OnMouseDown(MouseEvent e)
+	private static void OnMouseDown(MouseEvent e)
 	{
 		if (e.Button != EnumMouseButton.Middle)
 			return;
@@ -79,7 +79,7 @@ public class Core : ModSystem
 		e.Handled = HotKeyHandler();
 	}
 
-	private bool HotKeyHandler()
+	private static bool HotKeyHandler()
 	{
 		var player = cApi.World.Player;
 		var lookingAt = player.CurrentBlockSelection;
@@ -112,7 +112,7 @@ public class Core : ModSystem
 				Payload = swapIdx
 			};
 
-			cChannel.SendPacket<Packet>(packet);
+			cChannel.SendPacket(packet);
 
 			return true;
 		}
@@ -120,7 +120,7 @@ public class Core : ModSystem
 		return false;
 	}
 
-	private int SearchInventory(IInventory inv, ItemStack lookFor)
+	private static int SearchInventory(IInventory inv, ItemStack lookFor)
 	{
 		for (int i = 0; i < inv.Count; ++i)
 		{
@@ -136,7 +136,7 @@ public class Core : ModSystem
 		return -1;
 	}
 
-	private int GetBestSuitedHotbarSlot(IPlayer player, IInventory inv, ItemSlot slot)
+	private static int GetBestSuitedHotbarSlot(IPlayer player, IInventory inv, ItemSlot slot)
 	{
 		var bestSlot = player.InventoryManager.GetBestSuitedHotbarSlot(inv, slot);
 		var bestSlotIdx = bestSlot?.Inventory?.GetSlotId(bestSlot) ?? -1;
