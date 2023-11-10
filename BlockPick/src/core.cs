@@ -20,8 +20,8 @@ public class Core : ModSystem
 	private const string HotKey = ModId + "hotkey";
 	private const string Channel = ModId + "channel";
 
-	private static IClientNetworkChannel cChannel;
-	private static ICoreClientAPI cApi;
+	private ICoreClientAPI cApi;
+	private IClientNetworkChannel cChannel;
 
 	public override void Start(ICoreAPI api)
 	{
@@ -66,7 +66,7 @@ public class Core : ModSystem
 		currentSlot.MarkDirty();
 	}
 
-	private static void OnMouseDown(MouseEvent e)
+	private void OnMouseDown(MouseEvent e)
 	{
 		if (e.Button != EnumMouseButton.Middle)
 			return;
@@ -77,7 +77,7 @@ public class Core : ModSystem
 		e.Handled = HotKeyHandler();
 	}
 
-	private static bool HotKeyHandler()
+	private bool HotKeyHandler()
 	{
 		var player = cApi.World.Player;
 		var lookingAt = player.CurrentBlockSelection;
