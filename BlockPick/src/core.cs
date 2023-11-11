@@ -87,11 +87,21 @@ public class Core : ModSystem
 		if (lookingAt == null)
 			return false;
 
-		// FIXME: This returns wrong `Block` for some blocks (e.g. planks)
+		// WARNING: This returns wrong `Block` for some blocks (e.g. planks)
 		var lookingAtItemStack = lookingAt.Block.OnPickBlock(cApi.World, lookingAt.Position);
 
+		// HACK: A temp fix for `OnPickBlock`, might have a quirky behavior
+		if (!SearchAndSwap(player, lookingAtItemStack))
+			foreach (var drop in lookingAt.Block.Drops)
+				return SearchAndSwap(player, drop.ResolvedItemstack);
+
+		return false;
+	}
+
+	private bool SearchAndSwap(IPlayer player, ItemStack lookFor)
+	{
 		var swapInv = player.InventoryManager.GetOwnInventory(GlobalConstants.hotBarInvClassName);
-		int swapIdx = SearchInventory(swapInv, lookingAtItemStack);
+		int swapIdx = SearchInventory(swapInv, lookFor);
 
 		if (swapIdx >= 0)
 		{
@@ -100,7 +110,7 @@ public class Core : ModSystem
 		}
 
 		swapInv = player.InventoryManager.GetOwnInventory(GlobalConstants.backpackInvClassName);
-		swapIdx = SearchInventory(swapInv, lookingAtItemStack);
+		swapIdx = SearchInventory(swapInv, lookFor);
 
 		if (swapIdx >= 0)
 		{
