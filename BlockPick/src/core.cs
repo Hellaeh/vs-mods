@@ -43,15 +43,13 @@ public class Core : ModSystem
 	{
 		base.StartClientSide(api);
 
-		var channel = api.Network.GetChannel(Channel);
-
 		api.Input.RegisterHotKey(HotKey, Lang.Get(ModId + ":hotkey"), GlKeys.Q, HotkeyType.CharacterControls);
 		api.Input.SetHotKeyHandler(HotKey, _ => HotKeyHandler());
 
 		api.Event.MouseDown += OnMouseDown;
 
 		cApi = api;
-		cChannel = channel;
+		cChannel = api.Network.GetChannel(Channel);
 	}
 
 	private static void ChannelHandler(IServerPlayer player, Packet packet)
@@ -90,15 +88,17 @@ public class Core : ModSystem
 		// WARNING: This returns wrong `Block` for some blocks (e.g. planks)
 		var lookingAtItemStack = lookingAt.Block.OnPickBlock(cApi.World, lookingAt.Position);
 
-		// HACK: A temp fix for `OnPickBlock`, might have a quirky behavior
-		if (!SearchAndSwap(player, lookingAtItemStack))
-			foreach (var drop in lookingAt.Block.Drops)
-				return SearchAndSwap(player, drop.ResolvedItemstack);
+		var res = PickBlock(player, lookingAtItemStack);
 
-		return false;
+		if (!res)
+			// HACK: A temp fix for `OnPickBlock`, might have a quirky behavior
+			foreach (var drop in lookingAt.Block.Drops)
+				return PickBlock(player, drop.ResolvedItemstack);
+
+		return res;
 	}
 
-	private bool SearchAndSwap(IPlayer player, ItemStack lookFor)
+	private bool PickBlock(IPlayer player, ItemStack lookFor)
 	{
 		var swapInv = player.InventoryManager.GetOwnInventory(GlobalConstants.hotBarInvClassName);
 		int swapIdx = SearchInventory(swapInv, lookFor);
