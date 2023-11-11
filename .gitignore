@@ -2,6 +2,8 @@ vsapi
 vscreativemod
 vssurvivalmod
 
+vsdata
+
 **/bin
 **/debug
 **/obj
