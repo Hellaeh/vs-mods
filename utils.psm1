@@ -1,6 +1,6 @@
 function get-mod($arg) {
 	$mod = $arg;
-	
+
 	# i hate pwsh
 	.{
 		if (-not $mod) {
@@ -13,6 +13,6 @@ function get-mod($arg) {
 			throw [System.IO.FileNotFoundException] """modinfo.json"" not found."
 		}
 	} | out-null;
-	
+
 	return $mod;
 }
