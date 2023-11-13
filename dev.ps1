@@ -4,11 +4,9 @@ $path = get-mod $args[0];
 
 $modfolder = split-path $path -leaf;
 
-if (test-path "$path\release") {
-	rm -recurse "$path\release\*";
-} 
-
-&dotnet build $path | out-default;
+if (-not (test-path "$path\releaes")) {
+	mkdir "$path\release";
+}
 
 $root = (resolve-path "$path\..").path;
 $vsdata = "$root\vsdata";
@@ -23,5 +21,5 @@ if (-not (new-item -type junction -path "$vsdata\Mods\$modfolder" -target "$path
 	throw "Could not make a junction for a $modfolder";
 }
 
-start-process pwsh -wait -argumentlist "-file ""$root\launch.ps1""", "--dataPath $vsdata", "--tracelog", "-o DebugMods", "-p creativebuilding";
+start-process pwsh -argumentlist "-file ""$root\launch.ps1""", "$path", "--dataPath $vsdata", "--tracelog", "-o DebugMods", "-p creativebuilding";
 
