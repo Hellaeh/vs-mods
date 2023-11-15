@@ -90,18 +90,18 @@ public class Core : ModSystem
 
 		var res = PickBlock(player, lookingAtItemStack);
 
+		// HACK: A temp fix for `OnPickBlock`, might have a quirky behavior
 		if (!res)
-			// HACK: A temp fix for `OnPickBlock`, might have a quirky behavior
 			foreach (var drop in lookingAt.Block.Drops)
 				return PickBlock(player, drop.ResolvedItemstack);
 
 		return res;
 	}
 
-	private bool PickBlock(IPlayer player, ItemStack lookFor)
+	private bool PickBlock(IClientPlayer player, ItemStack lookFor)
 	{
 		var swapInv = player.InventoryManager.GetOwnInventory(GlobalConstants.hotBarInvClassName);
-		int swapIdx = SearchInventory(swapInv, lookFor);
+		var swapIdx = SearchInventory(swapInv, lookFor);
 
 		if (swapIdx >= 0)
 		{
@@ -146,10 +146,13 @@ public class Core : ModSystem
 		return -1;
 	}
 
-	private static int GetBestSuitedHotbarSlot(IPlayer player, IInventory inv, ItemSlot slot)
+	private static int GetBestSuitedHotbarSlot(IClientPlayer player, IInventory inv, ItemSlot slot)
 	{
 		var bestSlot = player.InventoryManager.GetBestSuitedHotbarSlot(inv, slot);
 		var bestSlotIdx = bestSlot?.Inventory?.GetSlotId(bestSlot) ?? -1;
+
+		// hardcoded for now
+		const int hbSlots = 10;
 
 		if (bestSlotIdx == -1)
 		{
@@ -158,7 +161,7 @@ public class Core : ModSystem
 
 			var hotbarInv = player.InventoryManager.GetHotbarInventory();
 
-			for (int i = 0; i < hotbarInv.Count; ++i)
+			for (int i = 0; i < hbSlots; ++i)
 			{
 				var currentSlot = hotbarInv[i];
 
@@ -169,7 +172,7 @@ public class Core : ModSystem
 					return i;
 			}
 
-			return 9;
+			return hbSlots - 1;
 		}
 
 		return bestSlotIdx;
