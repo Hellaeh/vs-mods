@@ -8,5 +8,5 @@ $moddest = "$env:APPDATA\VintagestoryData\Mods\$modname.zip";
 
 rm -recurse "$modbuild\*";
 
-dotnet build --no-incremental $path &&
+dotnet build --no-incremental -c release /p:Optimize=true /p:DebugType=None /p:DebugSymbols=false $path &&
 	compress-archive "$modbuild\*" -destinationpath "$moddest" -force;

@@ -2,10 +2,11 @@ import-module "$PSScriptRoot\utils.psm1" -scope local -force;
 
 $path = get-mod $args[0];
 
-$modfolder = split-path $path -leaf;
+$modname = split-path $path -leaf;
+$modrelease = "$path\release"
 
-if (-not (test-path "$path\releaes")) {
-	mkdir "$path\release";
+if (-not (test-path "$modrelease")) {
+	mkdir "$modrelease";
 }
 
 $root = (resolve-path "$path\..").path;
@@ -17,9 +18,9 @@ if (-not (test-path $vsdata)) {
 
 rm "$vsdata\Mods\*";
 
-if (-not (new-item -type junction -path "$vsdata\Mods\$modfolder" -target "$path\release")) {
-	throw "Could not make a junction for a $modfolder";
+if (-not (new-item -type junction -path "$vsdata\Mods\$modname" -target "$modrelease")) {
+	throw "Could not make a junction for a $modname";
 }
 
-start-process pwsh -argumentlist "-file ""$root\launch.ps1""", "$path", "--dataPath $vsdata", "--tracelog", "-o DebugMods", "-p creativebuilding";
+&"$root\launch.ps1" $path --dataPath $vsdata --tracelog -o DebugMods -p creativebuilding
 
