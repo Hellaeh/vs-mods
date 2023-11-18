@@ -8,7 +8,7 @@ using Vintagestory.API.Server;
 namespace HelBlockPick;
 
 [ProtoContract]
-public class Packet
+class Packet
 {
 	[ProtoMember(1)]
 	public int Payload;
@@ -100,50 +100,48 @@ public class Core : ModSystem
 
 	private bool PickBlock(IClientPlayer player, ItemStack lookFor)
 	{
-		var swapInv = player.InventoryManager.GetOwnInventory(GlobalConstants.hotBarInvClassName);
-		var swapIdx = SearchInventory(swapInv, lookFor);
+		var handled = false;
 
-		if (swapIdx >= 0)
+		player.Entity.WalkInventory(slot =>
 		{
-			player.InventoryManager.ActiveHotbarSlotNumber = swapIdx;
-			return true;
-		}
-
-		swapInv = player.InventoryManager.GetOwnInventory(GlobalConstants.backpackInvClassName);
-		swapIdx = SearchInventory(swapInv, lookFor);
-
-		if (swapIdx >= 0)
-		{
-			var bestSlotIdx = GetBestSuitedHotbarSlot(player, swapInv, swapInv[swapIdx]);
-			player.InventoryManager.ActiveHotbarSlotNumber = bestSlotIdx;
-
-			Packet packet = new()
-			{
-				Payload = swapIdx
-			};
-
-			cChannel.SendPacket(packet);
-
-			return true;
-		}
-
-		return false;
-	}
-
-	private static int SearchInventory(IInventory inv, ItemStack lookFor)
-	{
-		for (int i = 0; i < inv.Count; ++i)
-		{
-			var slot = inv[i];
-
 			if (slot.Empty)
-				continue;
+				return true;
 
-			if (lookFor.Satisfies(slot.Itemstack))
-				return i;
-		}
+			if (!slot.Itemstack.Satisfies(lookFor))
+				return true;
 
-		return -1;
+			var inv = slot.Inventory;
+			var slotIdx = inv.GetSlotId(slot);
+
+			switch (inv.ClassName)
+			{
+				case GlobalConstants.hotBarInvClassName:
+					player.InventoryManager.ActiveHotbarSlotNumber = slotIdx;
+					break;
+
+				case GlobalConstants.backpackInvClassName:
+					var bestSlotIdx = GetBestSuitedHotbarSlot(player, inv, slot);
+					player.InventoryManager.ActiveHotbarSlotNumber = bestSlotIdx;
+
+					Packet packet = new()
+					{
+						Payload = slotIdx
+					};
+
+					cChannel.SendPacket(packet);
+					break;
+
+				default:
+					var ERR_MSG = $"BlockPick Error: Unknown inventory class - \"{inv.ClassName}\". Report this error to author.";
+					player.ShowChatNotification(ERR_MSG);
+					cApi.Logger.Error(ERR_MSG);
+					break;
+			}
+
+			return !(handled = true);
+		});
+
+		return handled;
 	}
 
 	private static int GetBestSuitedHotbarSlot(IClientPlayer player, IInventory inv, ItemSlot slot)
