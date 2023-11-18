@@ -1,11 +1,12 @@
 import-module "$PSScriptRoot\utils.psm1" -scope local -force;
 
 $path = get-mod $args[0];
+$isCode = $(get-modtype $path) -eq "code";
 
 $modname = split-path $path -leaf;
-$modrelease = "$path\release"
+$modrelease = if ($isCode) { "$path\release" } else { $path };
 
-if (-not (test-path "$modrelease")) {
+if ($isCode -and -not (test-path "$modrelease")) {
 	mkdir "$modrelease";
 }
 
@@ -13,7 +14,7 @@ $root = (resolve-path "$path\..").path;
 $vsdata = "$root\vsdata";
 
 if (-not (test-path $vsdata)) {
-	throw "No vsdata found";
+	throw "No ""vsdata"" found";
 }
 
 rm "$vsdata\Mods\*";

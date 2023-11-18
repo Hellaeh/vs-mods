@@ -1,3 +1,9 @@
+function test-modinfo($arg) {
+	if (-not (test-path "$arg\modinfo.json")) {
+		throw [System.IO.FileNotFoundException] """modinfo.json"" not found."
+	}
+}
+
 function get-mod($arg) {
 	$mod = $arg;
 
@@ -9,10 +15,21 @@ function get-mod($arg) {
 			$mod = $(resolve-path $mod).path;
 		}
 
-		if (-not (test-path "$mod\modinfo.json")) {
-			throw [System.IO.FileNotFoundException] """modinfo.json"" not found."
-		}
+		test-modinfo $mod;
 	} | out-null;
 
 	return $mod;
+}
+
+function get-modtype($arg) {
+	$type = "code";
+
+	.{
+		test-modinfo $arg;
+
+		$modinfo = cat "$arg\modinfo.json" | convertfrom-json;
+		$type = $modinfo.type;
+	} | out-null
+
+	return $type;
 }
