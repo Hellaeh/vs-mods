@@ -1,0 +1,14 @@
+[
+  {
+    "op": "replace",
+    "path": "/combustibleProps/burnDuration",
+    "value": 3600,
+    "file": "game:itemtypes/resource/firewood.json"
+  },
+  {
+    "op": "replace",
+    "path": "/combustibleProps/burnDuration",
+    "value": 3600,
+    "file": "game:itemtypes/resource/firewood-aged.json"
+  }
+]
