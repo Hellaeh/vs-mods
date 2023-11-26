@@ -11,13 +11,12 @@
 
   <ItemGroup>
     <ProjectReference Include="$(MOD_PATH)/$(MOD_NAME).csproj">
-      <Private>true</Private>
+      <Private>false</Private>
     </ProjectReference>
   </ItemGroup>
 
   <ItemGroup>
-    <Reference Include="Vintagestory">
-      <HintPath>$(VINTAGE_STORY)/Vintagestory.dll</HintPath>
+    <Reference Include="$(VINTAGE_STORY)/Vintagestory.dll">
       <Private>true</Private>
     </Reference>
   </ItemGroup>

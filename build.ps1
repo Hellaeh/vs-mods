@@ -1,11 +1,11 @@
 import-module "$PSScriptRoot\utils.psm1" -scope local -force;
 
 $path = get-mod $args[0];
-$isCode = $(get-modtype $path) -eq "code";
-
+$modinfo = get-modinfo $path;
 $modname = $(split-path $path -leaf) -replace '\s+', '';
 $modbuild = "$path\release";
-$moddest = "$env:APPDATA\VintagestoryData\Mods\$modname.zip";
+$moddest = "$env:APPDATA\VintagestoryData\Mods\$modname-$($modinfo.version).zip";
+$isCode = $modinfo.type -eq "code";
 
 if (test-path $modbuild) {
 	rm -recurse "$modbuild\*";

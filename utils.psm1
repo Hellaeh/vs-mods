@@ -4,6 +4,18 @@ function test-modinfo($arg) {
 	}
 }
 
+function get-modinfo($arg) {
+	$modinfo;
+
+	.{
+		test-modinfo $arg;
+
+		$modinfo = cat "$arg\modinfo.json" | convertfrom-json;
+	} | out-null;
+
+	return $modinfo;
+}
+
 function get-mod($arg) {
 	$mod = $arg;
 
@@ -25,9 +37,7 @@ function get-modtype($arg) {
 	$type = "code";
 
 	.{
-		test-modinfo $arg;
-
-		$modinfo = cat "$arg\modinfo.json" | convertfrom-json;
+		$modinfo = get-modinfo $arg;
 		$type = $modinfo.type;
 	} | out-null
 

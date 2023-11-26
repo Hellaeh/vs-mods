@@ -23,5 +23,5 @@ if (-not (new-item -type junction -path "$vsdata\Mods\$modname" -target "$modrel
 	throw "Could not make a junction for a $modname";
 }
 
-&"$root\launch.ps1" $path --dataPath $vsdata --tracelog -o DebugMods -p creativebuilding
+&"$root\watch.ps1" $path --dataPath $vsdata --tracelog -o DebugMods -p creativebuilding
 
