@@ -63,7 +63,6 @@ public class Core : ModSystem
 		var swapSlot = swapInv[packet.Payload];
 
 		currentSlot.TryFlipWith(swapSlot);
-		currentSlot.MarkDirty();
 	}
 
 	private void OnMouseDown(MouseEvent e)
@@ -92,8 +91,8 @@ public class Core : ModSystem
 
 		// HACK: A temp fix for `OnPickBlock`, might have a quirky behavior
 		if (!res)
-			foreach (var drop in lookingAt.Block.Drops)
-				return PickBlock(player, drop.ResolvedItemstack);
+			foreach (var drop in lookingAt.Block.GetDrops(cApi.World, lookingAt.Position, player))
+				return PickBlock(player, drop);
 
 		return res;
 	}
@@ -149,31 +148,29 @@ public class Core : ModSystem
 		var bestSlot = player.InventoryManager.GetBestSuitedHotbarSlot(inv, slot);
 		var bestSlotIdx = bestSlot?.Inventory?.GetSlotId(bestSlot) ?? -1;
 
+		if (bestSlotIdx != -1)
+			return bestSlotIdx;
+
 		// hardcoded for now
 		const int hbSlots = 10;
 
-		if (bestSlotIdx == -1)
+		if (player.InventoryManager.ActiveTool == null)
+			return player.InventoryManager.ActiveHotbarSlotNumber;
+
+		var hotbarInv = player.InventoryManager.GetHotbarInventory();
+
+		for (int i = 0; i < hbSlots; ++i)
 		{
-			if (player.InventoryManager.ActiveTool == null)
-				return player.InventoryManager.ActiveHotbarSlotNumber;
+			var currentSlot = hotbarInv[i];
 
-			var hotbarInv = player.InventoryManager.GetHotbarInventory();
+			if (currentSlot.Empty)
+				return i;
 
-			for (int i = 0; i < hbSlots; ++i)
-			{
-				var currentSlot = hotbarInv[i];
-
-				if (currentSlot.Empty)
-					return i;
-
-				if (currentSlot.Itemstack?.Item?.Tool == null)
-					return i;
-			}
-
-			return hbSlots - 1;
+			if (currentSlot.Itemstack?.Item?.Tool == null)
+				return i;
 		}
 
-		return bestSlotIdx;
+		return hbSlots - 1;
 	}
 }
 
