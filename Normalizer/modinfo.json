@@ -7,7 +7,7 @@
     "Hellaeh"
   ],
   "description": "A simple recipe to revert chiseled blocks back to normal",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "dependencies": {
     "game": "1.18.15"
   }

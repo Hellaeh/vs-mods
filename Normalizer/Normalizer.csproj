@@ -10,8 +10,16 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Reference Include="VintagestoryAPI">
-      <HintPath>$(VINTAGE_STORY)/VintagestoryAPI.dll</HintPath>
+    <Reference Include="$(VINTAGE_STORY)\VintagestoryAPI.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(VINTAGE_STORY)\Mods\VSSurvivalMod.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(VINTAGE_STORY)\Lib\Newtonsoft.Json.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(VINTAGE_STORY)\Lib\0Harmony.dll">
       <Private>false</Private>
     </Reference>
   </ItemGroup>
