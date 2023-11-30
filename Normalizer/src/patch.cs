@@ -38,6 +38,14 @@ public class Patch
 				byPlayer.Entity.World.SpawnItemEntity(stack, byPlayer.Entity.Pos.XYZ);
 		}
 
-		return true;
+		stackInSlot.Itemstack.StackSize -= quantity;
+
+		if (stackInSlot.Itemstack.StackSize <= 0)
+		{
+			stackInSlot.Itemstack = null;
+			stackInSlot.MarkDirty();
+		}
+
+		return false;
 	}
 }

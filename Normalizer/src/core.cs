@@ -96,12 +96,12 @@ public class Core : ModSystem
 		if (match == null || count > 1)
 			return true;
 
-		var materials = (match.Itemstack.Attributes["materials"] as IntArrayAttribute)?.value;
+		var materials = (match.Itemstack.Attributes["materials"] as IntArrayAttribute).value;
 
 		// First id is initial block, which could be a variant `ew`, `ud` etc, that should not be obtained in survival
 		var initialBlock = sApi.World.GetBlock(materials[0]);
-		foreach (var drop in initialBlock.GetDrops(sApi.World, null, player).Take(1))
-			initialBlock = drop.Block ?? initialBlock;
+		foreach (var drop in initialBlock.Drops.Take(1))
+			initialBlock = drop.ResolvedItemstack?.Block ?? initialBlock;
 
 		recipe.Output = new()
 		{
