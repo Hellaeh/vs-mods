@@ -97,6 +97,8 @@ public class Core : ModSystem
 		return res;
 	}
 
+	// WARNING: There might be a sneaky bug about first four slots of backpack inventory
+	// are bags themself
 	private bool PickBlock(IClientPlayer player, ItemStack lookFor)
 	{
 		var handled = false;
