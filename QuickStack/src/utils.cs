@@ -8,7 +8,7 @@ namespace HelQuickStack;
 public class Utils
 {
 	// Math.log2(32)
-	private const int CHUNK_SHIFT = 5;
+	public const int ChunkShift = 5;
 
 	/// <summary>
 	/// Will walk nearby containers in "radius"(manhattan distance)
@@ -24,11 +24,11 @@ public class Utils
 		var min = center.AddCopy(-r, -r, -r);
 		var max = center.AddCopy(r, r, r);
 
-		var xcmin = min.X >> CHUNK_SHIFT;
-		var ycmin = min.Y >> CHUNK_SHIFT;
-		var zcmin = min.Z >> CHUNK_SHIFT;
-		var xcmax = max.X >> CHUNK_SHIFT;
-		var zcmax = max.Z >> CHUNK_SHIFT;
+		var xcmin = min.X >> ChunkShift;
+		var ycmin = min.Y >> ChunkShift;
+		var zcmin = min.Z >> ChunkShift;
+		var xcmax = max.X >> ChunkShift;
+		var zcmax = max.Z >> ChunkShift;
 
 		var xccount = xcmax - xcmin + 1;
 		var zccount = zcmax - zcmin + 1;
@@ -39,9 +39,9 @@ public class Utils
 		{
 			var cpos = center.AddCopy(x, y, z);
 
-			var i = ((cpos.Y >> CHUNK_SHIFT) - ycmin) * zccount - zcmin;
-			i = (i + (cpos.Z >> CHUNK_SHIFT)) * xccount;
-			i += (cpos.X >> CHUNK_SHIFT) - xcmin;
+			var i = ((cpos.Y >> ChunkShift) - ycmin) * zccount - zcmin;
+			i = (i + (cpos.Z >> ChunkShift)) * xccount;
+			i += (cpos.X >> ChunkShift) - xcmin;
 
 			var chunk = chunks[i];
 
@@ -72,12 +72,12 @@ public class Utils
 
 	public static IWorldChunk[] GetChunksInArea(IBlockAccessor blockAccessor, BlockPos min, BlockPos max)
 	{
-		var xmin = min.X >> CHUNK_SHIFT;
-		var ymin = min.Y >> CHUNK_SHIFT;
-		var zmin = min.Z >> CHUNK_SHIFT;
-		var xmax = max.X >> CHUNK_SHIFT;
-		var ymax = max.Y >> CHUNK_SHIFT;
-		var zmax = max.Z >> CHUNK_SHIFT;
+		var xmin = min.X >> ChunkShift;
+		var ymin = min.Y >> ChunkShift;
+		var zmin = min.Z >> ChunkShift;
+		var xmax = max.X >> ChunkShift;
+		var ymax = max.Y >> ChunkShift;
+		var zmax = max.Z >> ChunkShift;
 
 		var xcount = xmax - xmin + 1;
 		var ycount = ymax - ymin + 1;

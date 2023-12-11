@@ -2,8 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-using ProtoBuf;
-
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
 using Vintagestory.API.Config;
@@ -14,19 +12,13 @@ using Vintagestory.GameContent;
 
 namespace HelQuickStack;
 
-[ProtoContract]
-class Packet
-{
-	[ProtoMember(1)]
-	public Dictionary<BlockPos, List<int>> Payload;
-}
-
 public class Core : ModSystem
 {
 	private const string ModId = "helquickstack";
 	private const string HotKey = ModId + "hotkey";
 	private const string Channel = ModId + "channel";
-	private const string ConfigFile = ModId + "config.json";
+	private const string ClientConfigFile = ModId + "ConfigClient.json";
+	private const string ServerConfigFile = ModId + "ConfigServer.json";
 
 	private const string FavoriteColor = "#FFD000";
 
@@ -35,8 +27,8 @@ public class Core : ModSystem
 	// Inventory row length in GUI window
 	private const int ROWLEN = 6;
 
-	private const int MAX_RADIUS = 200;
-	private static int RADIUS;
+	private const int MaxRadius = 256;
+	private static int Radius;
 
 	private ICoreClientAPI cApi;
 	private IClientNetworkChannel cChannel;
@@ -50,21 +42,31 @@ public class Core : ModSystem
 		base.Start(api);
 
 		api.Network.RegisterChannel(Channel)
-			.RegisterMessageType<Packet>();
+			.RegisterMessageType<StackPacket>()
+			.RegisterMessageType<RadiusPacket>();
 	}
 
 	public override void StartServerSide(ICoreServerAPI api)
 	{
 		base.StartServerSide(api);
 
-		// FIXME: Create and read server config
-		// Also sync between server and client
-		var config = 10;
+		int radius;
+		try
+		{
+			radius = Math.Min(api.LoadModConfig<ServerConfig>(ServerConfigFile).Radius, MaxRadius);
+		}
+		catch
+		{
+			radius = ServerConfig.DefaultRadius;
+			api.StoreModConfig(new ServerConfig(), ServerConfigFile);
+		}
 
-		RADIUS = Math.Min(MAX_RADIUS, config);
+		var maxViewDistance = api.Server.Config.MaxChunkRadius << Utils.ChunkShift;
 
-		api.Network.GetChannel(Channel)
-			.SetMessageHandler<Packet>(ChannelHandler);
+		var ch = api.Network.GetChannel(Channel)
+			.SetMessageHandler<StackPacket>(ChannelHandler);
+
+		api.Event.PlayerJoin += player => ch.SendPacket(new RadiusPacket() { Payload = Math.Min(radius, maxViewDistance) }, player);
 	}
 
 	public override void StartClientSide(ICoreClientAPI api)
@@ -76,18 +78,19 @@ public class Core : ModSystem
 
 		api.Event.MouseDown += OnMouseDown;
 		api.Event.PlayerJoin += OnPlayerJoin;
-		api.Event.LeaveWorld += () => cApi.StoreModConfig(new Config { FavoriteSlots = favSlots.value }, ConfigFile);
+		api.Event.LeaveWorld += () => cApi.StoreModConfig(new ClientConfig { FavoriteSlots = favSlots.value }, ClientConfigFile);
 
 		// FIXME: We need this later as a workaround to avoid crashing a client 
 		backpackGui = api.Gui.LoadedGuis.Find(gui => gui.ToString().Contains("GuiDialogInventory"));
 
 		cApi = api;
-		cChannel = api.Network.GetChannel(Channel);
+		cChannel = api.Network.GetChannel(Channel)
+			.SetMessageHandler<RadiusPacket>(packet => Radius = Math.Min(packet.Payload, MaxRadius));
 	}
 
-	private void OnPlayerJoin(IClientPlayer player)
+	private void OnPlayerJoin(IPlayer player)
 	{
-		favSlots.value = cApi.LoadModConfig<Config>(ConfigFile)?.FavoriteSlots ?? favSlots.value;
+		favSlots.value = cApi.LoadModConfig<ClientConfig>(ClientConfigFile)?.FavoriteSlots ?? favSlots.value;
 
 		backpackInv.SlotModified += OnBackpackSlotModified;
 		UpdateFavorite();
@@ -139,7 +142,7 @@ public class Core : ModSystem
 		// FIXME: Remove once you can dynamically color slot without a crash
 		// HACK: Ensure first row is always favorite, if no favorite slots were assigned by user. 
 		// At least one slot needs to be colored to avoid crashing a client. 
-		if (favSlots.value.Length == 0)
+		if (favSlots.value.Length == 0 || !favSlots.value.Any(v => v < backpackInv.Count))
 			for (int i = BAGS_OFFSET; i < BAGS_OFFSET + ROWLEN && backpackInv[i] != null; ++i)
 				backpackInv[i].HexBackgroundColor = FavoriteColor;
 
@@ -177,69 +180,109 @@ public class Core : ModSystem
 		if (sourceSlotIds.Count == 0)
 			return true;
 
-		var itemIds = new List<int>();
+		// Temp buf vars
+		var stackableItemIds = new List<int>();
+		var emptySlots = new List<int>();
+		var nonEmptySlots = new List<int>();
 
-		// FIXME: Get view distance
-		var viewDistance = RADIUS;
-		var radius = Math.Min(RADIUS, viewDistance);
-
-		Utils.WalkNearbyContainers(cApi.World.Player, RADIUS, container =>
+		bool ClearBufsAndReturn(bool ret)
 		{
-			var inv = container.Inventory;
-			var pos = container.Pos;
+			stackableItemIds.Clear();
+			emptySlots.Clear();
+			nonEmptySlots.Clear();
 
-			if (inv.PutLocked)
+			return ret;
+		}
+
+		Utils.WalkNearbyContainers(cApi.World.Player, Radius, container =>
+		{
+			var destInv = container.Inventory;
+			var destPos = container.Pos;
+
+			if (destInv.PutLocked)
 				return true;
 
-			// Filter full inventories
-			if (!inv.Any(slot => slot.Empty))
-				return true;
-
-			foreach (var slot in inv)
+			for (var i = 0; i < destInv.Count; ++i)
 			{
+				var slot = destInv[i];
+
 				if (slot.Empty)
-					continue;
-
-				var itemId = slot.Itemstack.Id;
-
-				if (sourceSlotIds.ContainsKey(itemId))
-					itemIds.Add(itemId);
+					emptySlots.Add(i);
+				else
+					nonEmptySlots.Add(i);
 			}
 
-			foreach (var itemId in itemIds)
-			{
-				var sourceSlots = sourceSlotIds[itemId];
+			// Filter not suited containers
+			if (nonEmptySlots.Count == 0)
+				return ClearBufsAndReturn(true);
 
-				foreach (var destSlot in inv)
+			foreach (var slotId in nonEmptySlots)
+			{
+				var itemId = destInv[slotId].Itemstack.Id;
+
+				if (sourceSlotIds.ContainsKey(itemId))
+					stackableItemIds.Add(itemId);
+			}
+
+			foreach (var itemId in stackableItemIds)
+			{
+				if (!sourceSlotIds.TryGetValue(itemId, out var sourceSlots))
+					continue;
+
+				// Prioritize already filled slots
+				foreach (var slotId in nonEmptySlots)
 				{
 					if (!sourceSlots.TryPop(out var id))
-						break;
+					{
+						sourceSlotIds.Remove(itemId);
+						// continue outer loop
+						goto Continue;
+					}
 
+					var destSlot = destInv[slotId];
 					var sourceSlot = backpackInv[id];
 
-					if (destSlot.Empty || (destSlot.Itemstack.Collectible.MaxStackSize - destSlot.Itemstack.StackSize - sourceSlot.Itemstack.StackSize) > 0)
+					var merged = destSlot.Itemstack.Collectible.GetMergableQuantity(destSlot.Itemstack, sourceSlot.Itemstack, EnumMergePriority.AutoMerge);
+
+					if (merged > 0)
 					{
-						if (!payload.TryGetValue(pos, out var ids))
-							payload.Add(pos, ids = new());
+						if (!payload.TryGetValue(destPos, out var ids))
+							payload.Add(destPos, ids = new());
 
 						ids.Add(id);
 					}
 
-					else
+					if (merged < sourceSlot.StackSize)
 						sourceSlots.Push(id);
 				}
+
+				// Add the rest of source slots
+				foreach (var _ in emptySlots)
+				{
+					if (!sourceSlots.TryPop(out var id))
+					{
+						sourceSlotIds.Remove(itemId);
+						// continue outer loop
+						goto Continue;
+					}
+
+					if (!payload.TryGetValue(destPos, out var ids))
+						payload.Add(destPos, ids = new());
+
+					ids.Add(id);
+				}
+
+			Continue:;
 			}
 
-			itemIds.Clear();
-
-			return false;
+			return ClearBufsAndReturn(sourceSlotIds.Count > 0);
 		});
 
 
 		if (payload.Count == 0)
 			return true;
 
-		cChannel.SendPacket(new Packet()
+		cChannel.SendPacket(new StackPacket()
 		{
 			Payload = payload
 		});
@@ -247,35 +290,34 @@ public class Core : ModSystem
 		return true;
 	}
 
-	private static void ChannelHandler(IServerPlayer player, Packet packet)
+	private static void ChannelHandler(IServerPlayer player, StackPacket packet)
 	{
 		var sourceInv = player.InventoryManager.GetOwnInventory(GlobalConstants.backpackInvClassName);
 		var world = player.Entity.World;
 
 		foreach ((var pos, var ids) in packet.Payload)
 		{
+			// Welp something terrible happened
 			if (player.Entity.World.BlockAccessor.GetBlockEntity(pos) is not BlockEntityContainer container)
 				return;
 
-			var inv = container.Inventory;
-			var id = ids.Count;
+			var destInv = container.Inventory;
+			int i = 0, slot = 0;
 
-			foreach (var destSlot in inv)
+			while (i < ids.Count && slot < destInv.Count)
 			{
-				if (--id < 0)
-					break;
+				var id = ids[i];
+				var destSlot = destInv[slot];
 
-				player.Entity.Api.Logger.Notification($"{ids[id]}");
+				var sourceSlot = sourceInv[id];
+				var stackSize = sourceSlot.StackSize;
 
-				var sourceSlot = sourceInv[ids[id]];
+				var res = sourceSlot.TryPutInto(world, destSlot, stackSize);
 
-				if (destSlot.Empty || (destSlot.Itemstack.Collectible.MaxStackSize - destSlot.Itemstack.StackSize - sourceSlot.Itemstack.StackSize) > 0)
-				{
-					if (sourceSlot.TryPutInto(world, destSlot, sourceSlot.Itemstack.StackSize) == 0)
-						return;
-				}
-				else
-					++id;
+				if (res == 0)
+					++slot;
+				else if (res == stackSize)
+					++i;
 			}
 		}
 	}
