@@ -10,8 +10,9 @@ using Vintagestory.API.MathTools;
 using Vintagestory.API.Server;
 using Vintagestory.GameContent;
 
-namespace HelQuickStack;
+using SourceDestIds = (int, int);
 
+namespace HelQuickStack;
 public class Core : ModSystem
 {
 	private const string ModId = "helquickstack";
@@ -153,43 +154,38 @@ public class Core : ModSystem
 
 	private bool HotKeyHandler()
 	{
-		Dictionary<int, Stack<int>> sourceSlotIds = new();
-		// Packet payload
-		Dictionary<BlockPos, List<int>> payload = new();
+		Dictionary<int, Stack<VirtualSlot>> sourceSlotByItemId = [];
+		Dictionary<BlockPos, List<SourceDestIds>> payload = [];
 
 		for (int slotId = BAGS_OFFSET; slotId < backpackInv.Count; ++slotId)
 		{
 			var slot = backpackInv[slotId];
 
-			if (slot.Empty)
+			// TODO: Change for better mod compatibility
+			if (slot.Empty || slot.HexBackgroundColor == FavoriteColor)
 				continue;
 
-			// NOTE: Should probably be changed for better mod compatibility
-			if (slot.HexBackgroundColor == FavoriteColor)
-				continue;
+			var itemId = slot.Itemstack.Id;
 
-			var id = slot.Itemstack.Id;
+			if (!sourceSlotByItemId.TryGetValue(itemId, out var slots))
+				sourceSlotByItemId.Add(itemId, slots = new());
 
-			if (!sourceSlotIds.TryGetValue(id, out var slots))
-				sourceSlotIds.Add(id, slots = new());
-
-			slots.Push(slotId);
+			slots.Push(new(slot, slotId));
 		}
 
-		// Check if nothing to stack
-		if (sourceSlotIds.Count == 0)
+		if (sourceSlotByItemId.Count == 0)
 			return true;
 
 		// Temp buf vars
-		var stackableItemIds = new List<int>();
-		var emptySlots = new List<int>();
-		var nonEmptySlots = new List<int>();
+		var stackableItemIds = new HashSet<int>();
+		var nonEmptySlots = new HashSet<VirtualSlot>();
+		var emptySlots = new HashSet<VirtualSlot>();
 
 		bool ClearBufsAndReturn(bool ret)
 		{
 			stackableItemIds.Clear();
-			emptySlots.Clear();
 			nonEmptySlots.Clear();
+			emptySlots.Clear();
 
 			return ret;
 		}
@@ -197,94 +193,117 @@ public class Core : ModSystem
 		Utils.WalkNearbyContainers(cApi.World.Player, Radius, container =>
 		{
 			var destInv = container.Inventory;
-			var destPos = container.Pos;
+			var destInvPos = container.Pos;
 
 			if (destInv.PutLocked)
 				return true;
 
 			for (var i = 0; i < destInv.Count; ++i)
 			{
-				var slot = destInv[i];
+				var destSlot = new VirtualSlot(destInv[i], i);
 
-				if (slot.Empty)
-					emptySlots.Add(i);
+				if (destSlot.Empty)
+					emptySlots.Add(destSlot);
 				else
-					nonEmptySlots.Add(i);
+					nonEmptySlots.Add(destSlot);
 			}
 
 			// Filter not suited containers
 			if (nonEmptySlots.Count == 0)
 				return ClearBufsAndReturn(true);
 
-			foreach (var slotId in nonEmptySlots)
-			{
-				var itemId = destInv[slotId].Itemstack.Id;
-
-				if (sourceSlotIds.ContainsKey(itemId))
-					stackableItemIds.Add(itemId);
-			}
+			foreach (var slot in nonEmptySlots)
+				if (sourceSlotByItemId.ContainsKey(slot.ItemId))
+					stackableItemIds.Add(slot.ItemId);
 
 			foreach (var itemId in stackableItemIds)
 			{
-				if (!sourceSlotIds.TryGetValue(itemId, out var sourceSlots))
+				if (!sourceSlotByItemId.TryGetValue(itemId, out var sourceSlots))
 					continue;
 
+				bool reachedEmptySlots = false;
+
 				// Prioritize already filled slots
-				foreach (var slotId in nonEmptySlots)
+				foreach (var destSlot in nonEmptySlots.Where(slot => slot.ItemId == itemId))
+					while (destSlot.RemSpace > 0)
+					{
+						if (!sourceSlots.TryPop(out var sourceSlot))
+						{
+							sourceSlotByItemId.Remove(itemId);
+							// continue outer loop
+							goto Continue;
+						}
+
+						if (sourceSlot.StackSize > destSlot.RemSpace)
+						{
+							sourceSlot.StackSize -= destSlot.RemSpace;
+							destSlot.StackSize = destSlot.MaxStackSize;
+
+							sourceSlots.Push(sourceSlot);
+						}
+						else
+						{
+							destSlot.StackSize += sourceSlot.StackSize;
+							sourceSlot.StackSize = 0;
+						}
+
+						if (!payload.TryGetValue(destInvPos, out var pairs))
+							payload.Add(destInvPos, pairs = []);
+
+						pairs.Add((sourceSlot.Id, destSlot.Id));
+					}
+
+				reachedEmptySlots = true;
+
+				// Fill empty slots one by one
+				foreach (var destSlot in emptySlots)
 				{
-					if (!sourceSlots.TryPop(out var id))
+					while (destSlot.RemSpace > 0)
 					{
-						sourceSlotIds.Remove(itemId);
-						// continue outer loop
-						goto Continue;
+						if (!sourceSlots.TryPop(out var sourceSlot))
+						{
+							sourceSlotByItemId.Remove(itemId);
+
+							// continue outer loop
+							goto Continue;
+						}
+
+						destSlot.Itemstack = sourceSlot.Itemstack;
+
+						if (sourceSlot.StackSize > destSlot.RemSpace)
+						{
+							sourceSlot.StackSize -= destSlot.RemSpace;
+							destSlot.StackSize = destSlot.MaxStackSize;
+
+							sourceSlots.Push(sourceSlot);
+						}
+						else
+						{
+							destSlot.StackSize += sourceSlot.StackSize;
+							sourceSlot.StackSize = 0;
+						}
+
+						if (!payload.TryGetValue(destInvPos, out List<SourceDestIds> pairs))
+							payload.Add(destInvPos, pairs = []);
+
+						pairs.Add((sourceSlot.Id, destSlot.Id));
 					}
-
-					var destSlot = destInv[slotId];
-					var sourceSlot = backpackInv[id];
-
-					var merged = destSlot.Itemstack.Collectible.GetMergableQuantity(destSlot.Itemstack, sourceSlot.Itemstack, EnumMergePriority.AutoMerge);
-
-					if (merged > 0)
-					{
-						if (!payload.TryGetValue(destPos, out var ids))
-							payload.Add(destPos, ids = new());
-
-						ids.Add(id);
-					}
-
-					if (merged < sourceSlot.StackSize)
-						sourceSlots.Push(id);
-				}
-
-				// Add the rest of source slots
-				foreach (var _ in emptySlots)
-				{
-					if (!sourceSlots.TryPop(out var id))
-					{
-						sourceSlotIds.Remove(itemId);
-						// continue outer loop
-						goto Continue;
-					}
-
-					if (!payload.TryGetValue(destPos, out var ids))
-						payload.Add(destPos, ids = new());
-
-					ids.Add(id);
 				}
 
 			Continue:;
+				if (reachedEmptySlots)
+					emptySlots.RemoveWhere(slot => !slot.Empty);
 			}
 
-			return ClearBufsAndReturn(sourceSlotIds.Count > 0);
+			return ClearBufsAndReturn(sourceSlotByItemId.Count > 0);
 		});
-
 
 		if (payload.Count == 0)
 			return true;
 
 		cChannel.SendPacket(new StackPacket()
 		{
-			Payload = payload
+			Payload = payload.Select(kv => (kv.Key, kv.Value)).ToList()
 		});
 
 		return true;
@@ -295,29 +314,20 @@ public class Core : ModSystem
 		var sourceInv = player.InventoryManager.GetOwnInventory(GlobalConstants.backpackInvClassName);
 		var world = player.Entity.World;
 
-		foreach ((var pos, var ids) in packet.Payload)
+		foreach ((var pos, List<SourceDestIds> slotPairs) in packet.Payload)
 		{
-			// Welp something terrible happened
-			if (player.Entity.World.BlockAccessor.GetBlockEntity(pos) is not BlockEntityContainer container)
+			if (world.BlockAccessor.GetBlockEntity(pos) is not BlockEntityContainer container)
 				return;
 
 			var destInv = container.Inventory;
-			int i = 0, slot = 0;
 
-			while (i < ids.Count && slot < destInv.Count)
+			foreach ((var sId, var dId) in slotPairs)
 			{
-				var id = ids[i];
-				var destSlot = destInv[slot];
-
-				var sourceSlot = sourceInv[id];
+				var destSlot = destInv[dId];
+				var sourceSlot = sourceInv[sId];
 				var stackSize = sourceSlot.StackSize;
 
-				var res = sourceSlot.TryPutInto(world, destSlot, stackSize);
-
-				if (res == 0)
-					++slot;
-				else if (res == stackSize)
-					++i;
+				sourceSlot.TryPutInto(world, destSlot, stackSize);
 			}
 		}
 	}

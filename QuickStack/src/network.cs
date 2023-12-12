@@ -4,13 +4,15 @@ using ProtoBuf;
 
 using Vintagestory.API.MathTools;
 
+using SourceDestIds = (int, int);
+
 namespace HelQuickStack;
 
 [ProtoContract]
 class StackPacket
 {
 	[ProtoMember(1)]
-	public Dictionary<BlockPos, List<int>> Payload;
+	public List<(BlockPos, List<SourceDestIds>)> Payload;
 }
 
 [ProtoContract]

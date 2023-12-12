@@ -1,11 +1,10 @@
-using System;
 using System.Text.Json.Serialization;
 
 namespace HelQuickStack;
 
 public class ClientConfig
 {
-	public int[] FavoriteSlots { get; set; } = Array.Empty<int>();
+	public int[] FavoriteSlots { get; set; } = [];
 }
 
 public class ServerConfig
