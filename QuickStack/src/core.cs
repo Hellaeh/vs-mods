@@ -320,6 +320,7 @@ public class Core : ModSystem
 				return;
 
 			var destInv = container.Inventory;
+			var transferedAmount = 0;
 
 			foreach ((var sId, var dId) in slotPairs)
 			{
@@ -327,8 +328,11 @@ public class Core : ModSystem
 				var sourceSlot = sourceInv[sId];
 				var stackSize = sourceSlot.StackSize;
 
-				sourceSlot.TryPutInto(world, destSlot, stackSize);
+				transferedAmount += sourceSlot.TryPutInto(world, destSlot, stackSize);
 			}
+
+			if (transferedAmount > 0)
+				container.MarkDirty();
 		}
 	}
 }
