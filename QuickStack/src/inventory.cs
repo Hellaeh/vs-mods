@@ -6,7 +6,7 @@ namespace HelQuickStack;
 
 public class VirtualSlot(ItemSlot slot, int slotId)
 {
-	public ItemStack Itemstack { get; set; } = slot.Itemstack?.GetEmptyClone();
+	public ItemStack Itemstack { get; set; } = slot.Itemstack;
 
 	public int Id { get; } = slotId;
 	public int ItemId => Itemstack?.Id ?? 0;

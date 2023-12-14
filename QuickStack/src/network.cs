@@ -21,3 +21,12 @@ class RadiusPacket
 	[ProtoMember(1)]
 	public int Payload;
 }
+
+[ProtoContract]
+class SuccessPacket
+{
+	// Positions of containers that took\gave at least one item
+	[ProtoMember(1)]
+	public List<BlockPos> Payload;
+}
+

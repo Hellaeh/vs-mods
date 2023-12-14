@@ -8,11 +8,13 @@ using Vintagestory.API.Config;
 using Vintagestory.API.Datastructures;
 using Vintagestory.API.MathTools;
 using Vintagestory.API.Server;
+using Vintagestory.Client.NoObf;
 using Vintagestory.GameContent;
 
 using SourceDestIds = (int, int);
 
 namespace HelQuickStack;
+
 public class Core : ModSystem
 {
 	private const string ModId = "helquickstack";
@@ -33,6 +35,7 @@ public class Core : ModSystem
 
 	private ICoreClientAPI cApi;
 	private IClientNetworkChannel cChannel;
+	private IServerNetworkChannel sChannel;
 
 	private GuiDialog backpackGui;
 	private IInventory backpackInv => cApi.World.Player.InventoryManager.GetOwnInventory(GlobalConstants.backpackInvClassName);
@@ -43,8 +46,9 @@ public class Core : ModSystem
 		base.Start(api);
 
 		api.Network.RegisterChannel(Channel)
+			.RegisterMessageType<RadiusPacket>()
 			.RegisterMessageType<StackPacket>()
-			.RegisterMessageType<RadiusPacket>();
+			.RegisterMessageType<SuccessPacket>();
 	}
 
 	public override void StartServerSide(ICoreServerAPI api)
@@ -64,10 +68,10 @@ public class Core : ModSystem
 
 		var maxViewDistance = api.Server.Config.MaxChunkRadius << Utils.ChunkShift;
 
-		var ch = api.Network.GetChannel(Channel)
+		sChannel = api.Network.GetChannel(Channel)
 			.SetMessageHandler<StackPacket>(ChannelHandler);
 
-		api.Event.PlayerJoin += player => ch.SendPacket(new RadiusPacket() { Payload = Math.Min(radius, maxViewDistance) }, player);
+		api.Event.PlayerJoin += player => sChannel.SendPacket(new RadiusPacket() { Payload = Math.Min(radius, maxViewDistance) }, player);
 	}
 
 	public override void StartClientSide(ICoreClientAPI api)
@@ -82,11 +86,21 @@ public class Core : ModSystem
 		api.Event.LeaveWorld += () => cApi.StoreModConfig(new ClientConfig { FavoriteSlots = favSlots.value }, ClientConfigFile);
 
 		// FIXME: We need this later as a workaround to avoid crashing a client 
-		backpackGui = api.Gui.LoadedGuis.Find(gui => gui.ToString().Contains("GuiDialogInventory"));
+		backpackGui = api.Gui.LoadedGuis.Find(gui => gui is GuiDialogInventory);
 
 		cApi = api;
 		cChannel = api.Network.GetChannel(Channel)
-			.SetMessageHandler<RadiusPacket>(packet => Radius = Math.Min(packet.Payload, MaxRadius));
+			.SetMessageHandler<RadiusPacket>(packet => Radius = Math.Min(packet.Payload, MaxRadius))
+			.SetMessageHandler<SuccessPacket>(OnSuccess);
+	}
+
+	private void OnSuccess(SuccessPacket packet)
+	{
+		var rattle = new AssetLocation(ModId + ":sounds/rattle");
+
+		// TODO: Add shaking animation or something
+		foreach (var pos in packet.Payload)
+			cApi.World.PlaySoundAt(rattle, pos.X, pos.Y, pos.Z);
 	}
 
 	private void OnPlayerJoin(IPlayer player)
@@ -309,15 +323,22 @@ public class Core : ModSystem
 		return true;
 	}
 
-	private static void ChannelHandler(IServerPlayer player, StackPacket packet)
+	private void ChannelHandler(IServerPlayer player, StackPacket packet)
 	{
 		var sourceInv = player.InventoryManager.GetOwnInventory(GlobalConstants.backpackInvClassName);
 		var world = player.Entity.World;
 
+		var successPacket = new SuccessPacket() { Payload = new List<BlockPos>(packet.Payload.Count) };
+
 		foreach ((var pos, List<SourceDestIds> slotPairs) in packet.Payload)
 		{
 			if (world.BlockAccessor.GetBlockEntity(pos) is not BlockEntityContainer container)
+			{
+				if (successPacket.Payload.Count > 0)
+					sChannel.SendPacket(successPacket, player);
+
 				return;
+			}
 
 			var destInv = container.Inventory;
 			var transferedAmount = 0;
@@ -332,7 +353,13 @@ public class Core : ModSystem
 			}
 
 			if (transferedAmount > 0)
+			{
 				container.MarkDirty();
+				successPacket.Payload.Add(pos);
+			}
 		}
+
+		if (successPacket.Payload.Count > 0)
+			sChannel.SendPacket(successPacket, player);
 	}
 }
