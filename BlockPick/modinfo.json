@@ -5,8 +5,9 @@
   "authors": [
     "Hellaeh"
   ],
+  "side": "client",
   "description": "Imitates creative mode middle click on hotkey",
-  "version": "1.0.6",
+  "version": "2.0.0",
   "dependencies": {
     "game": "1.18.15"
   }

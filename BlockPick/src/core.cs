@@ -1,43 +1,17 @@
-using ProtoBuf;
-
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
 using Vintagestory.API.Config;
-using Vintagestory.API.Server;
 
 namespace HelBlockPick;
-
-[ProtoContract]
-class Packet
-{
-	[ProtoMember(1)]
-	public int Payload;
-}
 
 public class Core : ModSystem
 {
 	private const string ModId = "helblockpick";
 	private const string HotKey = ModId + "hotkey";
-	private const string Channel = ModId + "channel";
 
 	private ICoreClientAPI cApi;
-	private IClientNetworkChannel cChannel;
 
-	public override void Start(ICoreAPI api)
-	{
-		base.Start(api);
-
-		api.Network.RegisterChannel(Channel)
-			.RegisterMessageType<Packet>();
-	}
-
-	public override void StartServerSide(ICoreServerAPI api)
-	{
-		base.StartServerSide(api);
-
-		api.Network.GetChannel(Channel)
-			.SetMessageHandler<Packet>(ChannelHandler);
-	}
+	public override bool ShouldLoad(EnumAppSide forSide) => forSide == EnumAppSide.Client;
 
 	public override void StartClientSide(ICoreClientAPI api)
 	{
@@ -49,20 +23,6 @@ public class Core : ModSystem
 		api.Event.MouseDown += OnMouseDown;
 
 		cApi = api;
-		cChannel = api.Network.GetChannel(Channel);
-	}
-
-	private static void ChannelHandler(IServerPlayer player, Packet packet)
-	{
-		var inv = player.InventoryManager;
-		var currentSlot = inv.ActiveHotbarSlot;
-
-		// WARNING: Should check for `null`? Technically it's checked on client, but with latency and whatnot
-		// this might be `null`. Leaving a comment here for future.
-		var swapInv = inv.GetOwnInventory(GlobalConstants.backpackInvClassName);
-		var swapSlot = swapInv[packet.Payload];
-
-		currentSlot.TryFlipWith(swapSlot);
 	}
 
 	private void OnMouseDown(MouseEvent e)
@@ -112,30 +72,36 @@ public class Core : ModSystem
 				return true;
 
 			var inv = slot.Inventory;
-			var slotIdx = inv.GetSlotId(slot);
 
 			switch (inv.ClassName)
 			{
 				case GlobalConstants.hotBarInvClassName:
-					player.InventoryManager.ActiveHotbarSlotNumber = slotIdx;
+					player.InventoryManager.ActiveHotbarSlotNumber = inv.GetSlotId(slot);
 					break;
 
 				case GlobalConstants.backpackInvClassName:
 					var bestSlotIdx = GetBestSuitedHotbarSlot(player, inv, slot);
 					player.InventoryManager.ActiveHotbarSlotNumber = bestSlotIdx;
 
-					Packet packet = new()
-					{
-						Payload = slotIdx
-					};
+					var packet = player.InventoryManager.GetHotbarInventory().TryFlipItems(bestSlotIdx, slot);
 
-					cChannel.SendPacket(packet);
+					if (packet != null)
+						cApi.Network.SendPacketClient(packet);
+
 					break;
 
+				case GlobalConstants.characterInvClassName:
+				case GlobalConstants.craftingInvClassName:
+				case GlobalConstants.creativeInvClassName:
+				case GlobalConstants.groundInvClassName:
+				case GlobalConstants.mousecursorInvClassName:
+					break;
+
+				// For mod compatibility?
 				default:
 					var ERR_MSG = $"BlockPick Error: Unknown inventory class - \"{inv.ClassName}\". Report this error to author.";
 					player.ShowChatNotification(ERR_MSG);
-					cApi.Logger.Error(ERR_MSG);
+					cApi.Logger.Warning(ERR_MSG);
 					break;
 			}
 

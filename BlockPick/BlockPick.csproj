@@ -14,10 +14,6 @@
       <HintPath>$(VINTAGE_STORY)/VintagestoryAPI.dll</HintPath>
       <Private>false</Private>
     </Reference>
-    <Reference Include="protobuf-net">
-      <HintPath>$(VINTAGE_STORY)/Lib/protobuf-net.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
   </ItemGroup>
 
   <ItemGroup>
