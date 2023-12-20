@@ -12,7 +12,7 @@ public class Patch
 	[HarmonyPrefix]
 	[HarmonyPatch(typeof(CollectibleObject), nameof(CollectibleObject.OnConsumedByCrafting))]
 #pragma warning disable
-	static bool OnConsumedByCraftingPostfix(
+	static bool OnConsumedByCraftingPrefix(
 		CollectibleObject __instance,
 		ItemSlot[] allInputSlots,
 		ItemSlot stackInSlot,

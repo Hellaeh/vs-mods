@@ -114,7 +114,7 @@ public class Core : ModSystem
 
 	public override void Dispose()
 	{
-		harmony.UnpatchAll(harmonyId);
+		harmony?.UnpatchAll(harmonyId);
 		Recipe = null;
 		base.Dispose();
 	}

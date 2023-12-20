@@ -16,9 +16,6 @@
     <Reference Include="$(VINTAGE_STORY)\Mods\VSSurvivalMod.dll">
       <Private>false</Private>
     </Reference>
-    <Reference Include="$(VINTAGE_STORY)\Lib\Newtonsoft.Json.dll">
-      <Private>false</Private>
-    </Reference>
     <Reference Include="$(VINTAGE_STORY)\Lib\0Harmony.dll">
       <Private>false</Private>
     </Reference>
