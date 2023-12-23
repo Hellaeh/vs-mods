@@ -2,50 +2,46 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
+using HelFavorite;
+
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
 using Vintagestory.API.Config;
-using Vintagestory.API.Datastructures;
 using Vintagestory.API.MathTools;
 using Vintagestory.API.Server;
-using Vintagestory.Client.NoObf;
 using Vintagestory.GameContent;
 
 using SourceDestIds = (int, int);
 
 namespace HelQuickStack;
 
-public class Core : ModSystem
+public class Core : ModSystem, IDisposable
 {
-	private const string ModId = "helquickstack";
-	private const string HotKey = ModId + "hotkey";
-	private const string Channel = ModId + "channel";
-	private const string ClientConfigFile = ModId + "ConfigClient.json";
-	private const string ServerConfigFile = ModId + "ConfigServer.json";
+	public const string ModId = "helquickstack";
 
-	private const string FavoriteColor = "#FFD000";
+	private const string hotkey = ModId + "hotkey";
+	private const string channel = ModId + "channel";
+	private const string serverConfigFile = ModId + "/ConfigServer.json";
 
 	// Offset to ignore slots for bags
-	private const int BAGS_OFFSET = 4;
-	// Inventory row length in GUI window
-	private const int ROWLEN = 6;
+	public const int BagsOffset = 4;
 
-	private const int MaxRadius = 256;
-	private static int Radius;
+	private const int maxRadius = 256;
+	private static int radius;
+
+	public static HelFavorite.Core Favorite { get; private set; }
 
 	private ICoreClientAPI cApi;
 	private IClientNetworkChannel cChannel;
 	private IServerNetworkChannel sChannel;
 
-	private GuiDialog backpackGui;
 	private IInventory backpackInv => cApi.World.Player.InventoryManager.GetOwnInventory(GlobalConstants.backpackInvClassName);
-	private IntArrayAttribute favSlots => (cApi.World.Player.Entity.Attributes[ModId] ??= new IntArrayAttribute(Array.Empty<int>())) as IntArrayAttribute;
 
 	public override void Start(ICoreAPI api)
 	{
 		base.Start(api);
 
-		api.Network.RegisterChannel(Channel)
+		api.Network.RegisterChannel(channel)
 			.RegisterMessageType<RadiusPacket>()
 			.RegisterMessageType<StackPacket>()
 			.RegisterMessageType<SuccessPacket>();
@@ -55,20 +51,11 @@ public class Core : ModSystem
 	{
 		base.StartServerSide(api);
 
-		int radius;
-		try
-		{
-			radius = Math.Min(api.LoadModConfig<ServerConfig>(ServerConfigFile).Radius, MaxRadius);
-		}
-		catch
-		{
-			radius = ServerConfig.DefaultRadius;
-			api.StoreModConfig(new ServerConfig(), ServerConfigFile);
-		}
+		int radius = Math.Min(Helper.LoadConfig<ServerConfig>(api, serverConfigFile).Radius, maxRadius);
 
 		var maxViewDistance = api.Server.Config.MaxChunkRadius << Utils.ChunkShift;
 
-		sChannel = api.Network.GetChannel(Channel)
+		sChannel = api.Network.GetChannel(channel)
 			.SetMessageHandler<StackPacket>(ChannelHandler);
 
 		api.Event.PlayerJoin += player => sChannel.SendPacket(new RadiusPacket() { Payload = Math.Min(radius, maxViewDistance) }, player);
@@ -78,20 +65,15 @@ public class Core : ModSystem
 	{
 		base.StartClientSide(api);
 
-		api.Input.RegisterHotKey(HotKey, Lang.Get(ModId + ":hotkey"), GlKeys.X, HotkeyType.InventoryHotkeys);
-		api.Input.SetHotKeyHandler(HotKey, _ => HotKeyHandler());
-
-		api.Event.MouseDown += OnMouseDown;
-		api.Event.PlayerJoin += OnPlayerJoin;
-		api.Event.LeaveWorld += () => cApi.StoreModConfig(new ClientConfig { FavoriteSlots = favSlots.value }, ClientConfigFile);
-
-		// FIXME: We need this later as a workaround to avoid crashing a client 
-		backpackGui = api.Gui.LoadedGuis.Find(gui => gui is GuiDialogInventory);
+		api.Input.RegisterHotKey(hotkey, Lang.Get(ModId + ":hotkey"), GlKeys.X, HotkeyType.InventoryHotkeys);
+		api.Input.SetHotKeyHandler(hotkey, _ => HotkeyHandler());
 
 		cApi = api;
-		cChannel = api.Network.GetChannel(Channel)
-			.SetMessageHandler<RadiusPacket>(packet => Radius = Math.Min(packet.Payload, MaxRadius))
+		cChannel = api.Network.GetChannel(channel)
+			.SetMessageHandler<RadiusPacket>(packet => radius = Math.Min(packet.Payload, maxRadius))
 			.SetMessageHandler<SuccessPacket>(OnSuccess);
+
+		Favorite = cApi.ModLoader.GetModSystem<HelFavorite.Core>();
 	}
 
 	private void OnSuccess(SuccessPacket packet)
@@ -100,94 +82,31 @@ public class Core : ModSystem
 
 		// TODO: Add shaking animation or something
 		foreach (var pos in packet.Payload)
-			cApi.World.PlaySoundAt(rattle, pos.X, pos.Y, pos.Z);
+			cApi.World.PlaySoundAt(rattle, pos.X + .5, pos.Y, pos.Z + .5);
 	}
 
-	private void OnPlayerJoin(IPlayer player)
+	private bool HotkeyHandler()
 	{
-		favSlots.value = cApi.LoadModConfig<ClientConfig>(ClientConfigFile)?.FavoriteSlots ?? favSlots.value;
-
-		backpackInv.SlotModified += OnBackpackSlotModified;
-		UpdateFavorite();
-	}
-
-	private void OnBackpackSlotModified(int slotId)
-	{
-		if (slotId >= BAGS_OFFSET)
-			return;
-
-		// FIXME: Ugly workaround to avoid crashing the client
-		if (backpackGui.TryClose())
-			UpdateFavorite();
-	}
-
-	private void OnMouseDown(MouseEvent e)
-	{
-		if (e.Button is not (EnumMouseButton.Left or EnumMouseButton.Right))
-			return;
-
-		if (!cApi.Input.KeyboardKeyStateRaw[(int)GlKeys.AltLeft])
-			return;
-
-		var slot = cApi.World.Player.InventoryManager.CurrentHoveredSlot;
-
-		if (slot == null || slot.Inventory.ClassName != GlobalConstants.backpackInvClassName)
-			return;
-
-		var slotId = slot.Inventory.GetSlotId(slot);
-
-		if (slotId < BAGS_OFFSET)
-			return;
-
-		if (favSlots.value.Contains(slotId)) favSlots.RemoveInt(slotId);
-		else favSlots.AddInt(slotId);
-
-		e.Handled = true;
-
-		UpdateFavorite();
-	}
-
-	private void UpdateFavorite()
-	{
-		foreach (var slot in backpackInv.Skip(BAGS_OFFSET))
-			// To ensure others mods keep their colors
-			if (slot.HexBackgroundColor == FavoriteColor)
-				slot.HexBackgroundColor = null;
-
-		// FIXME: Remove once you can dynamically color slot without a crash
-		// HACK: Ensure first row is always favorite, if no favorite slots were assigned by user. 
-		// At least one slot needs to be colored to avoid crashing a client. 
-		if (favSlots.value.Length == 0 || !favSlots.value.Any(v => v < backpackInv.Count))
-			for (int i = BAGS_OFFSET; i < BAGS_OFFSET + ROWLEN && backpackInv[i] != null; ++i)
-				backpackInv[i].HexBackgroundColor = FavoriteColor;
-
-		foreach (var id in favSlots.value)
-			if (backpackInv[id] != null)
-				backpackInv[id].HexBackgroundColor = FavoriteColor;
-	}
-
-	private bool HotKeyHandler()
-	{
-		Dictionary<int, Stack<VirtualSlot>> sourceSlotByItemId = [];
+		Dictionary<int, Stack<VirtualSlot>> sourceSlotsByItemId = [];
 		Dictionary<BlockPos, List<SourceDestIds>> payload = [];
 
-		for (int slotId = BAGS_OFFSET; slotId < backpackInv.Count; ++slotId)
+		for (int slotId = BagsOffset; slotId < backpackInv.Count; ++slotId)
 		{
 			var slot = backpackInv[slotId];
 
 			// TODO: Change for better mod compatibility
-			if (slot.Empty || slot.HexBackgroundColor == FavoriteColor)
+			if (slot.Empty || slot.IsFavorite(slotId))
 				continue;
 
 			var itemId = slot.Itemstack.Id;
 
-			if (!sourceSlotByItemId.TryGetValue(itemId, out var slots))
-				sourceSlotByItemId.Add(itemId, slots = new());
+			if (!sourceSlotsByItemId.TryGetValue(itemId, out var slots))
+				sourceSlotsByItemId.Add(itemId, slots = new());
 
 			slots.Push(new(slot, slotId));
 		}
 
-		if (sourceSlotByItemId.Count == 0)
+		if (sourceSlotsByItemId.Count == 0)
 			return true;
 
 		// Temp buf vars
@@ -204,7 +123,7 @@ public class Core : ModSystem
 			return ret;
 		}
 
-		Utils.WalkNearbyContainers(cApi.World.Player, Radius, container =>
+		Utils.WalkNearbyContainers(cApi.World.Player, radius, container =>
 		{
 			var destInv = container.Inventory;
 			var destInvPos = container.Pos;
@@ -227,12 +146,12 @@ public class Core : ModSystem
 				return ClearBufsAndReturn(true);
 
 			foreach (var slot in nonEmptySlots)
-				if (sourceSlotByItemId.ContainsKey(slot.ItemId))
+				if (sourceSlotsByItemId.ContainsKey(slot.ItemId))
 					stackableItemIds.Add(slot.ItemId);
 
 			foreach (var itemId in stackableItemIds)
 			{
-				if (!sourceSlotByItemId.TryGetValue(itemId, out var sourceSlots))
+				if (!sourceSlotsByItemId.TryGetValue(itemId, out var sourceSlots))
 					continue;
 
 				bool reachedEmptySlots = false;
@@ -243,7 +162,7 @@ public class Core : ModSystem
 					{
 						if (!sourceSlots.TryPop(out var sourceSlot))
 						{
-							sourceSlotByItemId.Remove(itemId);
+							sourceSlotsByItemId.Remove(itemId);
 							// continue outer loop
 							goto Continue;
 						}
@@ -276,8 +195,7 @@ public class Core : ModSystem
 					{
 						if (!sourceSlots.TryPop(out var sourceSlot))
 						{
-							sourceSlotByItemId.Remove(itemId);
-
+							sourceSlotsByItemId.Remove(itemId);
 							// continue outer loop
 							goto Continue;
 						}
@@ -309,7 +227,7 @@ public class Core : ModSystem
 					emptySlots.RemoveWhere(slot => !slot.Empty);
 			}
 
-			return ClearBufsAndReturn(sourceSlotByItemId.Count > 0);
+			return ClearBufsAndReturn(sourceSlotsByItemId.Count > 0);
 		});
 
 		if (payload.Count == 0)
@@ -361,5 +279,12 @@ public class Core : ModSystem
 
 		if (successPacket.Payload.Count > 0)
 			sChannel.SendPacket(successPacket, player);
+	}
+
+	public override void Dispose()
+	{
+		Favorite?.Dispose();
+		Favorite = null;
+		base.Dispose();
 	}
 }

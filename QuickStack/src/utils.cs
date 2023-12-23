@@ -1,4 +1,5 @@
 using System;
+
 using Vintagestory.API.Common;
 using Vintagestory.API.MathTools;
 using Vintagestory.GameContent;
@@ -19,7 +20,8 @@ public class Utils
 		var r = radius;
 
 		var plPos = player.Entity.Pos;
-		var center = new BlockPos((int)plPos.X, (int)Math.Ceiling(plPos.Y), (int)plPos.Z);
+		var center = plPos.AsBlockPos.Copy();
+		center.Y = (int)Math.Ceiling(plPos.Y);
 
 		var min = center.AddCopy(-r, -r, -r);
 		var max = center.AddCopy(r, r, r);
@@ -45,10 +47,10 @@ public class Utils
 
 			var chunk = chunks[i];
 
-			return chunk == null ||
-				!chunk.BlockEntities.TryGetValue(cpos, out var entity) ||
-				entity is not BlockEntityContainer container ||
-				onInventory(container);
+			return chunk == null
+				|| !chunk.BlockEntities.TryGetValue(cpos, out var entity)
+				|| entity is not BlockEntityContainer container
+				|| onInventory(container);
 		}
 
 		int x, y, z, d;
@@ -95,6 +97,5 @@ public class Utils
 				}
 
 		return chunks;
-
 	}
 }

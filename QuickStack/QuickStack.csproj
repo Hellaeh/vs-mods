@@ -1,39 +1,34 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net7.0</TargetFramework>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
-    <OutputPath>release</OutputPath>
-    <DebugType>portable</DebugType>
-    <LangVersion>12.0</LangVersion>
     <CopyOutputSymbolsToPublishDirectory>false</CopyOutputSymbolsToPublishDirectory>
+    <DebugType>portable</DebugType>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <GenerateTargetFrameworkAttribute>false</GenerateTargetFrameworkAttribute>
+    <LangVersion>12.0</LangVersion>
+    <OutputPath Condition="'$(Configuration)'!='Release'">../vsdata/mods/$(AssemblyName)</OutputPath>
+    <OutputPath Condition="'$(Configuration)'=='Release'">release</OutputPath>
+    <TargetFramework>net7.0</TargetFramework>
   </PropertyGroup>
 
   <ItemGroup>
-    <Reference Include="VintagestoryAPI">
-      <HintPath>$(VINTAGE_STORY)/VintagestoryAPI.dll</HintPath>
+    <ProjectReference Include="../Favorite/Favorite.csproj">
+      <Private>false</Private>
+    </ProjectReference>
+    <Reference Include="$(VINTAGE_STORY)/Lib/Newtonsoft.Json.dll">
       <Private>false</Private>
     </Reference>
-    <Reference Include="VintageStory">
-      <HintPath>$(VINTAGE_STORY)/VintageStoryLib.dll</HintPath>
+    <Reference Include="$(VINTAGE_STORY)/Lib/protobuf-net.dll">
       <Private>False</Private>
     </Reference>
-    <Reference Include="VSSurvivalMod">
-      <HintPath>$(VINTAGE_STORY)/Mods/VSSurvivalMod.dll</HintPath>
+    <Reference Include="$(VINTAGE_STORY)/Mods/VSSurvivalMod.dll">
       <Private>False</Private>
     </Reference>
-    <Reference Include="VSEssentials">
-      <HintPath>$(VINTAGE_STORY)/Mods/VSEssentials.dll</HintPath>
+    <Reference Include="$(VINTAGE_STORY)/VintageStoryLib.dll">
       <Private>False</Private>
     </Reference>
-    <Reference Include="VSCreativeMod">
-      <HintPath>$(VINTAGE_STORY)/Mods/VSCreativeMod.dll</HintPath>
-      <Private>False</Private>
-    </Reference>  
-    <Reference Include="protobuf-net">
-      <HintPath>$(VINTAGE_STORY)/Lib/protobuf-net.dll</HintPath>
-      <Private>False</Private>
+    <Reference Include="$(VINTAGE_STORY)/VintagestoryAPI.dll">
+      <Private>false</Private>
     </Reference>
   </ItemGroup>
 

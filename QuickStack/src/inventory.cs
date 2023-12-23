@@ -1,9 +1,11 @@
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+
 using Vintagestory.API.Common;
 
 namespace HelQuickStack;
 
+// Currently used as helper in stacking algorithm
 public class VirtualSlot(ItemSlot slot, int slotId)
 {
 	public ItemStack Itemstack { get; set; } = slot.Itemstack;
