@@ -21,7 +21,7 @@ public class Core : ModSystem, IDisposable
 
 	private const string hotkey = ModId + "hotkey";
 	private const string channel = ModId + "channel";
-	private const string serverConfigFile = ModId + "/ConfigServer.json";
+	private const string serverConfigFile = ModId + "ConfigServer.json";
 
 	// Offset to ignore slots for bags
 	public const int BagsOffset = 4;
@@ -59,6 +59,8 @@ public class Core : ModSystem, IDisposable
 			.SetMessageHandler<StackPacket>(ChannelHandler);
 
 		api.Event.PlayerJoin += player => sChannel.SendPacket(new RadiusPacket() { Payload = Math.Min(radius, maxViewDistance) }, player);
+
+		api.StoreModConfig<ServerConfig>(new() { Radius = radius }, serverConfigFile);
 	}
 
 	public override void StartClientSide(ICoreClientAPI api)
