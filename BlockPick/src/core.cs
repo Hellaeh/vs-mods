@@ -80,7 +80,7 @@ public class Core : ModSystem
 					break;
 
 				case GlobalConstants.backpackInvClassName:
-					var bestSlotIdx = GetBestSuitedHotbarSlot(player, inv, slot);
+					var bestSlotIdx = GetBestSuitedHotbarSlot(player);
 					player.InventoryManager.ActiveHotbarSlotNumber = bestSlotIdx;
 
 					var packet = player.InventoryManager.GetHotbarInventory().TryFlipItems(bestSlotIdx, slot);
@@ -111,34 +111,32 @@ public class Core : ModSystem
 		return handled;
 	}
 
-	private static int GetBestSuitedHotbarSlot(IClientPlayer player, IInventory inv, ItemSlot slot)
+	private static int GetBestSuitedHotbarSlot(IClientPlayer player)
 	{
-		var bestSlot = player.InventoryManager.GetBestSuitedHotbarSlot(inv, slot);
-		var bestSlotIdx = bestSlot?.Inventory?.GetSlotId(bestSlot) ?? -1;
-
-		if (bestSlotIdx != -1)
-			return bestSlotIdx;
-
-		// hardcoded for now
+		// Hardcoded for now
 		const int hbSlots = 10;
-
-		if (player.InventoryManager.ActiveTool == null)
-			return player.InventoryManager.ActiveHotbarSlotNumber;
 
 		var hotbarInv = player.InventoryManager.GetHotbarInventory();
 
+		// Scan for empty slots
 		for (int i = 0; i < hbSlots; ++i)
-		{
-			var currentSlot = hotbarInv[i];
-
-			if (currentSlot.Empty)
+			if (hotbarInv[i].Empty)
 				return i;
 
-			if (currentSlot.Itemstack?.Item?.Tool == null)
+		// Scan for non tool slots
+		for (int i = 0; i < hbSlots; ++i)
+			if (hotbarInv[i].Itemstack.Item?.Tool != null)
 				return i;
-		}
 
+		// Return last slot
 		return hbSlots - 1;
+	}
+
+	public override void Dispose()
+	{
+		cApi.Event.MouseDown -= OnMouseDown;
+
+		base.Dispose();
 	}
 }
 

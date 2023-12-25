@@ -1,17 +1,18 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net7.0</TargetFramework>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
-    <OutputPath>release</OutputPath>
-    <DebugType>portable</DebugType>
     <CopyOutputSymbolsToPublishDirectory>false</CopyOutputSymbolsToPublishDirectory>
+    <DebugType>portable</DebugType>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <GenerateTargetFrameworkAttribute>false</GenerateTargetFrameworkAttribute>
+    <LangVersion>12.0</LangVersion>
+    <OutputPath Condition="'$(Configuration)'!='Release'">../vsdata/mods/$(AssemblyName)</OutputPath>
+    <OutputPath Condition="'$(Configuration)'=='Release'">release</OutputPath>
+    <TargetFramework>net7.0</TargetFramework>
   </PropertyGroup>
   
   <ItemGroup>
-    <Reference Include="VintagestoryAPI">
-      <HintPath>$(VINTAGE_STORY)/VintagestoryAPI.dll</HintPath>
+    <Reference Include="$(VINTAGE_STORY)/VintagestoryAPI.dll">
       <Private>false</Private>
     </Reference>
   </ItemGroup>
