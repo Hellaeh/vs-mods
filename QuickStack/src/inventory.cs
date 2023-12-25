@@ -18,6 +18,8 @@ public class VirtualSlot(ItemSlot slot, int slotId)
 
 	public bool Empty => StackSize == 0;
 	public int RemSpace => MaxStackSize - StackSize;
+
+	public InventoryBase Inventory => slot.Inventory;
 }
 
 public class VirtualSlotComparer : IEqualityComparer<VirtualSlot>

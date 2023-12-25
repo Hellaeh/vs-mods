@@ -19,7 +19,9 @@ public class Core : ModSystem, IDisposable
 {
 	public const string ModId = "helquickstack";
 
-	private const string hotkey = ModId + "hotkey";
+	private const string quickRefillHK = ModId + "hotkey2";
+	private const string quickStackHK = ModId + "hotkey";
+
 	private const string channel = ModId + "channel";
 	private const string serverConfigFile = ModId + "ConfigServer.json";
 
@@ -27,9 +29,9 @@ public class Core : ModSystem, IDisposable
 	public const int BagsOffset = 4;
 
 	private const int maxRadius = 256;
-	private static int radius;
+	public static int Radius { get; private set; }
 
-	public static HelFavorite.Core Favorite { get; private set; }
+	public HelFavorite.Core Favorite { get; private set; }
 
 	private ICoreClientAPI cApi;
 	private IClientNetworkChannel cChannel;
@@ -42,8 +44,8 @@ public class Core : ModSystem, IDisposable
 		base.Start(api);
 
 		api.Network.RegisterChannel(channel)
+			.RegisterMessageType<BulkMoveItemsPacket>()
 			.RegisterMessageType<RadiusPacket>()
-			.RegisterMessageType<StackPacket>()
 			.RegisterMessageType<SuccessPacket>();
 	}
 
@@ -56,7 +58,7 @@ public class Core : ModSystem, IDisposable
 		var maxViewDistance = api.Server.Config.MaxChunkRadius << Utils.ChunkShift;
 
 		sChannel = api.Network.GetChannel(channel)
-			.SetMessageHandler<StackPacket>(ChannelHandler);
+			.SetMessageHandler<BulkMoveItemsPacket>(ServerMoveItems);
 
 		api.Event.PlayerJoin += player => sChannel.SendPacket(new RadiusPacket() { Payload = Math.Min(radius, maxViewDistance) }, player);
 
@@ -67,12 +69,15 @@ public class Core : ModSystem, IDisposable
 	{
 		base.StartClientSide(api);
 
-		api.Input.RegisterHotKey(hotkey, Lang.Get(ModId + ":hotkey"), GlKeys.X, HotkeyType.InventoryHotkeys);
-		api.Input.SetHotKeyHandler(hotkey, _ => HotkeyHandler());
+		api.Input.RegisterHotKey(quickRefillHK, Lang.Get(ModId + ":quickrefill"), GlKeys.X, HotkeyType.InventoryHotkeys, ctrlPressed: true);
+		api.Input.RegisterHotKey(quickStackHK, Lang.Get(ModId + ":quickstack"), GlKeys.X, HotkeyType.InventoryHotkeys);
+
+		api.Input.SetHotKeyHandler(quickRefillHK, _ => QuickRefill());
+		api.Input.SetHotKeyHandler(quickStackHK, _ => QuickStack());
 
 		cApi = api;
 		cChannel = api.Network.GetChannel(channel)
-			.SetMessageHandler<RadiusPacket>(packet => radius = Math.Min(packet.Payload, maxRadius))
+			.SetMessageHandler<RadiusPacket>(packet => Radius = Math.Min(packet.Payload, maxRadius))
 			.SetMessageHandler<SuccessPacket>(OnSuccess);
 
 		Favorite = cApi.ModLoader.GetModSystem<HelFavorite.Core>();
@@ -87,7 +92,113 @@ public class Core : ModSystem, IDisposable
 			cApi.World.PlaySoundAt(rattle, pos.X + .5, pos.Y, pos.Z + .5);
 	}
 
-	private bool HotkeyHandler()
+	private bool QuickRefill()
+	{
+		// On top of a stack will be hotbar slots, if any
+		Dictionary<int, Stack<VirtualSlot>> destSlotsByItemId = [];
+
+		Dictionary<BlockPos, List<SourceDestIds>> hotbarPayload = [];
+		Dictionary<BlockPos, List<SourceDestIds>> backpackPayload = [];
+
+		var favSlotsByInv = Favorite.FavoriteSlots;
+		var favSlotsFromHotbarAndBackpack = favSlotsByInv
+			.Where(kv => kv.Key == Favorite.Backpack)
+			.Concat(favSlotsByInv.Where(kv => kv.Key == Favorite.Hotbar));
+
+		// Get non full favorite slots
+		foreach ((var inv, var favSlots) in favSlotsFromHotbarAndBackpack)
+			foreach (var slotId in favSlots)
+			{
+				var slot = inv[slotId];
+
+				if (slot == null || slot.Empty || slot.Itemstack.Collectible.MaxStackSize == slot.StackSize)
+					continue;
+
+				var itemId = slot.Itemstack.Id;
+
+				if (!destSlotsByItemId.TryGetValue(itemId, out var slots))
+					destSlotsByItemId.Add(itemId, slots = new());
+
+				slots.Push(new(slot, slotId));
+			}
+
+		var suitableSourceSlots = new List<VirtualSlot>();
+
+		Utils.WalkNearbyContainers(cApi.World.Player, Radius, container =>
+		{
+			suitableSourceSlots.Clear();
+
+			var sourceInv = container.Inventory;
+			var sourcePos = container.Pos;
+
+			if (sourceInv.TakeLocked)
+				return true;
+
+			for (int i = 0; i < sourceInv.Count; ++i)
+			{
+				var sourceSlot = sourceInv[i];
+
+				if (sourceSlot.Empty)
+					continue;
+
+				var itemId = sourceSlot.Itemstack.Id;
+
+				if (!destSlotsByItemId.TryGetValue(itemId, out var destSlots))
+					continue;
+
+				var sourceSlotRem = sourceSlot.StackSize;
+				while (sourceSlotRem > 0)
+				{
+					if (!destSlots.TryPop(out var destSlot))
+					{
+						destSlotsByItemId.Remove(itemId);
+
+						return true;
+					}
+
+					if (sourceSlotRem >= destSlot.RemSpace)
+					{
+						sourceSlotRem -= destSlot.RemSpace;
+						destSlot.StackSize = destSlot.MaxStackSize;
+					}
+					else
+					{
+						destSlot.StackSize += sourceSlotRem;
+						sourceSlotRem = 0;
+
+						destSlots.Push(destSlot);
+					}
+
+					var payloadByInv = destSlot.Inventory == Favorite.Hotbar ? hotbarPayload : backpackPayload;
+
+					if (!payloadByInv.TryGetValue(sourcePos, out var slots))
+						payloadByInv.Add(sourcePos, slots = []);
+
+					slots.Add((i, destSlot.Id));
+				}
+			}
+
+			return destSlotsByItemId.Count > 0;
+		});
+
+		if (hotbarPayload.Count > 0)
+			cChannel.SendPacket(new BulkMoveItemsPacket()
+			{
+				Operation = Operation.QuickRefillHotbar,
+				Payload = hotbarPayload.Select(kv => (kv.Key, kv.Value)).ToList()
+			});
+
+		if (backpackPayload.Count > 0)
+			cChannel.SendPacket(new BulkMoveItemsPacket()
+			{
+				Operation = Operation.QuickRefillBackpack,
+				Payload = backpackPayload.Select(kv => (kv.Key, kv.Value)).ToList()
+			});
+
+		return true;
+	}
+
+	private bool QuickStack()
 	{
 		Dictionary<int, Stack<VirtualSlot>> sourceSlotsByItemId = [];
 		Dictionary<BlockPos, List<SourceDestIds>> payload = [];
@@ -96,14 +207,13 @@ public class Core : ModSystem, IDisposable
 		{
 			var slot = backpackInv[slotId];
 
-			// TODO: Change for better mod compatibility
 			if (slot.Empty || slot.IsFavorite(slotId))
 				continue;
 
 			var itemId = slot.Itemstack.Id;
 
 			if (!sourceSlotsByItemId.TryGetValue(itemId, out var slots))
-				sourceSlotsByItemId.Add(itemId, slots = new());
+				sourceSlotsByItemId.Add(itemId, slots = []);
 
 			slots.Push(new(slot, slotId));
 		}
@@ -116,17 +226,12 @@ public class Core : ModSystem, IDisposable
 		var nonEmptySlots = new HashSet<VirtualSlot>();
 		var emptySlots = new HashSet<VirtualSlot>();
 
-		bool ClearBufsAndReturn(bool ret)
+		Utils.WalkNearbyContainers(cApi.World.Player, Radius, container =>
 		{
 			stackableItemIds.Clear();
 			nonEmptySlots.Clear();
 			emptySlots.Clear();
 
-			return ret;
-		}
-
-		Utils.WalkNearbyContainers(cApi.World.Player, radius, container =>
-		{
 			var destInv = container.Inventory;
 			var destInvPos = container.Pos;
 
@@ -145,7 +250,7 @@ public class Core : ModSystem, IDisposable
 
 			// Filter not suited containers
 			if (nonEmptySlots.Count == 0)
-				return ClearBufsAndReturn(true);
+				return true;
 
 			foreach (var slot in nonEmptySlots)
 				if (sourceSlotsByItemId.ContainsKey(slot.ItemId))
@@ -229,47 +334,60 @@ public class Core : ModSystem, IDisposable
 					emptySlots.RemoveWhere(slot => !slot.Empty);
 			}
 
-			return ClearBufsAndReturn(sourceSlotsByItemId.Count > 0);
+			return sourceSlotsByItemId.Count > 0;
 		});
 
 		if (payload.Count == 0)
 			return true;
 
-		cChannel.SendPacket(new StackPacket()
+		cChannel.SendPacket(new BulkMoveItemsPacket()
 		{
+			Operation = Operation.QuickStack,
 			Payload = payload.Select(kv => (kv.Key, kv.Value)).ToList()
 		});
 
 		return true;
 	}
 
-	private void ChannelHandler(IServerPlayer player, StackPacket packet)
+	private void ServerMoveItems(IServerPlayer player, BulkMoveItemsPacket packet)
 	{
-		var sourceInv = player.InventoryManager.GetOwnInventory(GlobalConstants.backpackInvClassName);
+		var playerInv = player.InventoryManager.GetOwnInventory(
+			packet.Operation == Operation.QuickRefillHotbar
+				? GlobalConstants.hotBarInvClassName
+				: GlobalConstants.backpackInvClassName
+		);
+
 		var world = player.Entity.World;
 
-		var successPacket = new SuccessPacket() { Payload = new List<BlockPos>(packet.Payload.Count) };
+		var successPacket = new SuccessPacket() { Payload = [] };
 
 		foreach ((var pos, List<SourceDestIds> slotPairs) in packet.Payload)
 		{
 			if (world.BlockAccessor.GetBlockEntity(pos) is not BlockEntityContainer container)
-			{
-				if (successPacket.Payload.Count > 0)
-					sChannel.SendPacket(successPacket, player);
+				break;
 
-				return;
-			}
-
-			var destInv = container.Inventory;
+			var containerInv = container.Inventory;
 			var transferedAmount = 0;
 
 			foreach ((var sId, var dId) in slotPairs)
 			{
-				var destSlot = destInv[dId];
-				var sourceSlot = sourceInv[sId];
-				var stackSize = sourceSlot.StackSize;
+				ItemSlot sourceSlot;
+				ItemSlot destSlot;
+				if (packet.Operation == Operation.QuickStack)
+				{
+					sourceSlot = playerInv[sId];
+					destSlot = containerInv[dId];
+				}
+				else
+				{
+					sourceSlot = containerInv[sId];
+					destSlot = playerInv[dId];
+				}
 
-				transferedAmount += sourceSlot.TryPutInto(world, destSlot, stackSize);
+				if (sourceSlot == null || destSlot == null)
+					continue;
+
+				transferedAmount += sourceSlot.TryPutInto(world, destSlot, sourceSlot.StackSize);
 			}
 
 			if (transferedAmount > 0)
@@ -286,7 +404,6 @@ public class Core : ModSystem, IDisposable
 	public override void Dispose()
 	{
 		Favorite?.Dispose();
-		Favorite = null;
 		base.Dispose();
 	}
 }
