@@ -7,7 +7,7 @@
   ],
   "side": "client",
   "description": "Imitates creative mode middle click on hotkey",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "dependencies": {
     "game": "1.18.15"
   }

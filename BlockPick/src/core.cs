@@ -125,7 +125,7 @@ public class Core : ModSystem
 
 		// Scan for non tool slots
 		for (int i = 0; i < hbSlots; ++i)
-			if (hotbarInv[i].Itemstack.Item?.Tool != null)
+			if (hotbarInv[i].Itemstack.Item?.Tool == null)
 				return i;
 
 		// Return last slot
