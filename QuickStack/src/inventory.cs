@@ -26,7 +26,7 @@ public class VirtualSlotComparer : IEqualityComparer<VirtualSlot>
 {
 	public bool Equals(VirtualSlot x, VirtualSlot y)
 	{
-		return x.Id == y.Id;
+		return x.Inventory == y.Inventory && x.Id == y.Id;
 	}
 
 	public int GetHashCode([DisallowNull] VirtualSlot obj)

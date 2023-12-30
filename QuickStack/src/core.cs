@@ -126,6 +126,9 @@ public class Core : ModSystem, IDisposable
 
 		Utils.WalkNearbyContainers(cApi.World.Player, Radius, container =>
 		{
+			if (container is BlockEntityGroundStorage)
+				return true;
+
 			suitableSourceSlots.Clear();
 
 			var sourceInv = container.Inventory;
@@ -228,6 +231,9 @@ public class Core : ModSystem, IDisposable
 
 		Utils.WalkNearbyContainers(cApi.World.Player, Radius, container =>
 		{
+			if (container is BlockEntityGroundStorage)
+				return true;
+
 			stackableItemIds.Clear();
 			nonEmptySlots.Clear();
 			emptySlots.Clear();
@@ -373,6 +379,7 @@ public class Core : ModSystem, IDisposable
 			{
 				ItemSlot sourceSlot;
 				ItemSlot destSlot;
+
 				if (packet.Operation == Operation.QuickStack)
 				{
 					sourceSlot = playerInv[sId];
