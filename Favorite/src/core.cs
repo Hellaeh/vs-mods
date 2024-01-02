@@ -44,6 +44,10 @@ public class Core : ModSystem
 
 	private ClientConfig config;
 
+	/// <summary>
+	/// Color currenly in use to mark item as favorite.
+	/// Read from config
+	/// </summary>
 	public string Color => config.FavoriteColor;
 
 	// FIXME: Remove. We need this later as a workaround to avoid crashing a client
@@ -203,8 +207,7 @@ public class Core : ModSystem
 				var hoverSlot = Api.World.Player.InventoryManager.CurrentHoveredSlot;
 
 				return (
-					hoverSlot == null
-					|| !hoverSlot.IsFavorite()
+					(hoverSlot != null && !hoverSlot.IsFavorite())
 					|| !FavoriteSlots[Hotbar].Contains(Api.World.Player.InventoryManager.ActiveHotbarSlotNumber)
 				)
 				&& originalHandler(key);
