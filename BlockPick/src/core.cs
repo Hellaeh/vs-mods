@@ -117,11 +117,16 @@ public class Core : ModSystem
 		const int hbSlots = 10;
 
 		var hotbarInv = player.InventoryManager.GetHotbarInventory();
+		var activeSlotId = player.InventoryManager.ActiveHotbarSlotNumber;
 
 		// Scan for empty slots
 		for (int i = 0; i < hbSlots; ++i)
 			if (hotbarInv[i].Empty)
 				return i;
+
+		// Use current active hotbar slot if it's a non tool 
+		if (hotbarInv[activeSlotId].Itemstack.Item?.Tool == null)
+			return activeSlotId;
 
 		// Scan for non tool slots
 		for (int i = 0; i < hbSlots; ++i)
