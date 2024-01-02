@@ -7,7 +7,7 @@
   ],
   "side": "client",
   "description": "Makes all crates same size",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "dependencies": {
     "game": "1.18.15"
   }

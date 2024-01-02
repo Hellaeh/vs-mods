@@ -7,7 +7,11 @@ namespace HelCrateStandard;
 [HarmonyPatch]
 class BlockEntityCratePatch
 {
-	[HarmonyPostfix]
+	[HarmonyPrefix]
 	[HarmonyPatch(typeof(BlockEntityCrate), "rndScale", MethodType.Getter)]
-	public static void rndScaleGetterPostfix(ref float __result) => __result = 1f;
+	public static bool rndScaleGetterPostfix(ref float __result)
+	{
+		__result = 1f;
+		return false;
+	}
 }
