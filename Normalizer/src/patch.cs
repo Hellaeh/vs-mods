@@ -11,17 +11,12 @@ public class Patch
 {
 	[HarmonyPrefix]
 	[HarmonyPatch(typeof(CollectibleObject), nameof(CollectibleObject.OnConsumedByCrafting))]
-#pragma warning disable
 	static bool OnConsumedByCraftingPrefix(
-		CollectibleObject __instance,
-		ItemSlot[] allInputSlots,
 		ItemSlot stackInSlot,
 		GridRecipe gridRecipe,
-		CraftingRecipeIngredient fromIngredient,
 		IPlayer byPlayer,
 		int quantity
 	)
-#pragma warning restore
 	{
 		if (Core.Recipe != gridRecipe)
 			return true;
