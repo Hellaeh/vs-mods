@@ -11,12 +11,7 @@ public class Patch
 {
 	[HarmonyPrefix]
 	[HarmonyPatch(typeof(CollectibleObject), nameof(CollectibleObject.OnConsumedByCrafting))]
-	static bool OnConsumedByCraftingPrefix(
-		ItemSlot stackInSlot,
-		GridRecipe gridRecipe,
-		IPlayer byPlayer,
-		int quantity
-	)
+	static bool OnConsumedByCraftingPrefix(ItemSlot stackInSlot, GridRecipe gridRecipe, IPlayer byPlayer, int quantity)
 	{
 		if (Core.Recipe != gridRecipe)
 			return true;

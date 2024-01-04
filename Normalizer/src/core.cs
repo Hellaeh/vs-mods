@@ -22,8 +22,6 @@ public class Core : ModSystem
 
 	public override void StartServerSide(ICoreServerAPI api)
 	{
-		base.StartServerSide(api);
-
 		RegisterRecipe(api);
 
 		harmony = new Harmony(harmonyId);
@@ -66,7 +64,7 @@ public class Core : ModSystem
 			// Placeholder output will be replaced in `MatchedGridRecipe` event handler
 			Output = ingr,
 			Name = block.Code,
-			resolvedIngredients = new GridRecipeIngredient[1] { resolved }
+			resolvedIngredients = [resolved]
 		};
 
 		api.RegisterCraftingRecipe(Recipe);
