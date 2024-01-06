@@ -207,10 +207,10 @@ public class Core : ModSystem
 				var hoverSlot = Api.World.Player.InventoryManager.CurrentHoveredSlot;
 
 				return (
-					(hoverSlot != null && !hoverSlot.IsFavorite())
-					|| !FavoriteSlots[Hotbar].Contains(Api.World.Player.InventoryManager.ActiveHotbarSlotNumber)
-				)
-				&& originalHandler(key);
+					hoverSlot != null
+						? !hoverSlot.IsFavorite()
+						: !FavoriteSlots[Hotbar].Contains(Api.World.Player.InventoryManager.ActiveHotbarSlotNumber)
+				) && originalHandler(key);
 			}
 
 			Api.Input.SetHotKeyHandler(hotkey, newHandler);
