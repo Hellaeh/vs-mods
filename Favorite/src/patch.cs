@@ -1,4 +1,7 @@
+using System.Runtime.CompilerServices;
+
 using HarmonyLib;
+
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
 using Vintagestory.Client.NoObf;
@@ -7,35 +10,33 @@ using Vintagestory.Common;
 namespace HelFavorite;
 
 [HarmonyPatch]
-public class InventoryManagerPatch
+class InventoryManagerPatch
 {
 	[HarmonyPrefix]
 	[HarmonyPatch(typeof(PlayerInventoryManager), nameof(PlayerInventoryManager.DropMouseSlotItems))]
-	// Prevent favorite items dropping from cursor
+	// Prevent favorite items from dropping from cursor
 	static bool DropMouseSlotItemsPrefix() => !Core.Instance?.MouseFavorite ?? true;
 }
 
 [HarmonyPatch]
-public class GuiElementItemSlotGridBasePatch
+class GuiElementItemSlotGridBasePatch
 {
 	[HarmonyPostfix]
 	[HarmonyPatch(typeof(GuiElementItemSlotGridBase), "RedistributeStacks")]
-	// This will propagate favorite slots when holding mouse left button
-	internal static void RedistributeStacksPostfix(GuiElementItemSlotGridBase __instance, int intoSlotId)
+	// This will distribute favorite slots when holding mouse left button
+	static void RedistributeStacksPostfix(GuiElementItemSlotGridBase __instance, int intoSlotId)
 	{
 		if (!Core.Instance.MouseFavorite)
 			return;
 
 		var inv = Traverse.Create(__instance).Field("inventory").GetValue<IInventory>();
 
-		Core.Instance.FavoriteSlots[inv]?.Add(intoSlotId);
-
-		Core.Instance.shouldUpdate = true;
+		inv[intoSlotId].TryMarkAsFavorite(intoSlotId);
 	}
 }
 
 [HarmonyPatch]
-public class GuiDialogInventoryPatch
+class GuiDialogInventoryPatch
 {
 	[HarmonyPrefix]
 	[HarmonyPatch(typeof(GuiDialogInventory), nameof(GuiDialogInventory.OnGuiClosed))]
@@ -66,10 +67,9 @@ public class GuiDialogInventoryPatch
 
 			if (packets == null)
 			{
-				int backpackSlotId = Core.BagsOffset;
 				var shouldRetry = false;
 
-				for (; backpackSlotId < Core.Instance.Backpack.Count; ++backpackSlotId)
+				for (int backpackSlotId = Core.BagsOffset; backpackSlotId < Core.Instance.Backpack.Count; ++backpackSlotId)
 				{
 					var backpackSlot = Core.Instance.Backpack[backpackSlotId];
 
@@ -87,28 +87,20 @@ public class GuiDialogInventoryPatch
 					packets = player.InventoryManager.TryTransferAway(slot, ref op, true, false);
 			}
 
-			var flags = System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance;
-
 			for (int i = 0; packets != null && i < packets.Length; ++i)
 			{
 				var packet = (Packet_Client)packets[i];
 
 				Core.Instance.Api.Network.SendPacketClient(packet);
 
-				if (
-					typeof(Packet_Client)
-						.GetField("MoveItemstack", flags)
-						.GetValue(packet)
-						is not Packet_MoveItemstack mvPacket
-				)
+				if (packet.MoveItemstack is not Packet_MoveItemstack mvPacket)
 					continue;
 
-				var targetInvId = (string)mvPacket.GetType().GetField("TargetInventoryId", flags).GetValue(mvPacket);
-				var targetSlotId = (int)mvPacket.GetType().GetField("TargetSlot", flags).GetValue(mvPacket);
+				var targetInvId = mvPacket.TargetInventoryId;
+				var targetSlotId = mvPacket.TargetSlot;
 				var targetInv = player.InventoryManager.GetInventory(targetInvId);
 
-				Core.Instance.FavoriteSlots[targetInv]?.Add(targetSlotId);
-				Core.Instance.shouldUpdate = true;
+				targetInv[targetSlotId].TryMarkAsFavorite();
 			}
 		}
 
@@ -117,7 +109,7 @@ public class GuiDialogInventoryPatch
 }
 
 [HarmonyPatch]
-public class InventoryBasePatch
+class InventoryBasePatch
 {
 	[HarmonyPrefix]
 	[HarmonyPatch(typeof(InventoryBase), nameof(InventoryBase.ActivateSlot))]
@@ -140,7 +132,7 @@ public class InventoryBasePatch
 		if (mouseEmpty && targetEmpty)
 			return false;
 
-		var mouseFavorite = Core.Instance.MouseFavorite;
+		var mouseFavorite = mouseSlot.IsFavorite(0);
 		var targetFavorite = targetSlot.IsFavorite(slotId);
 
 		if (mouseFavorite == targetFavorite)
@@ -159,9 +151,9 @@ public class InventoryBasePatch
 
 			// left or right click will swap mouse and target
 			if (!targetEmpty && !matchItemstack)
-				Core.Instance.MouseFavorite = false;
+				mouseSlot.TryUnmarkAsFavorite(0);
 
-			Core.Instance.FavoriteSlots[inv]?.Add(slotId);
+			targetSlot.TryMarkAsFavorite(slotId);
 		}
 		else // target is favorite, mouse is not
 		{
@@ -169,20 +161,21 @@ public class InventoryBasePatch
 				return true;
 
 			if (mouseEmpty || !matchItemstack)
-				Core.Instance.MouseFavorite = true;
+				mouseSlot.TryMarkAsFavorite(0);
 
 			if (!mouseEmpty && !matchItemstack)
-				Core.Instance.FavoriteSlots[inv]?.Remove(slotId);
+				targetSlot.TryUnmarkAsFavorite(slotId);
 		}
 
-		return Core.Instance.shouldUpdate = true;
+		return true;
 	}
 
 	[HarmonyPrefix]
 	[HarmonyPatch(typeof(InventoryBase), nameof(InventoryBase.TryFlipItems))]
-	static bool TryFlipItemsPrefix(InventoryBase __instance, int targetSlotId, ItemSlot itemSlot)
+	static bool TryFlipItemsPrefix(InventoryBase __instance, int targetSlotId, ItemSlot itemSlot, out (ItemSlot, ItemSlot)? __state)
 	{
 		var inv = __instance;
+		__state = null;
 
 		if (inv.Api.Side == EnumAppSide.Server)
 			return true;
@@ -190,29 +183,26 @@ public class InventoryBasePatch
 		var sourceSlot = itemSlot;
 		var destSlot = inv[targetSlotId];
 
-		static bool TrackSwap(ItemSlot favSlot, ItemSlot notFavSlot)
-		{
-			var destInv = notFavSlot.Inventory;
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		static (ItemSlot, ItemSlot)? SwapOrBlock(ItemSlot favSlot, ItemSlot notFavSlot) =>
+			Core.Instance.FavoriteSlots[notFavSlot.Inventory] == null ? null : (favSlot, notFavSlot);
 
-			if (Core.Instance.FavoriteSlots[destInv] != null)
-			{
-				favSlot.TryRemoveMarkedAsFavorite();
-
-				Core.Instance.FavoriteSlots[destInv].Add(destInv.GetSlotId(notFavSlot));
-
-				return Core.Instance.shouldUpdate = true;
-			}
-
-			return false;
-		}
-
-#pragma warning disable // False positive for IDE0072
 		return (sourceSlot.IsFavorite(), destSlot.IsFavorite(targetSlotId)) switch
-#pragma warning restore
 		{
 			(true, true) or (false, false) => true,
-			(true, _) => TrackSwap(sourceSlot, destSlot),
-			(_, true) => TrackSwap(destSlot, sourceSlot),
+			(true, _) => (__state = SwapOrBlock(sourceSlot, destSlot)) != null,
+			(_, true) => (__state = SwapOrBlock(destSlot, sourceSlot)) != null,
 		};
+	}
+
+	[HarmonyPostfix]
+	[HarmonyPatch(typeof(InventoryBase), nameof(InventoryBase.TryFlipItems))]
+	static void TryFlipItemsPostfix(object __result, (ItemSlot, ItemSlot)? __state)
+	{
+		if (__state == null || __result == null)
+			return;
+
+		__state?.Item1.TryUnmarkAsFavorite();
+		__state?.Item2.TryMarkAsFavorite();
 	}
 }

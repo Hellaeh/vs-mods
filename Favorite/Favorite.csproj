@@ -24,6 +24,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Reference Include="$(VINTAGE_STORY)/Lib/cairo-sharp.dll">
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
     <Content Include="assets\**">
         <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
