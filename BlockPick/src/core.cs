@@ -49,7 +49,7 @@ public class Core : ModSystem
 
 		var res = PickBlock(player, lookingAtItemStack);
 
-		// HACK: A temp fix for `OnPickBlock`, might have a quirky behavior
+		// HACK: If `OnBlockPick` fails - we fallback to `GetDrops`
 		if (!res)
 			foreach (var drop in lookingAt.Block.GetDrops(cApi.World, lookingAt.Position, player))
 				return PickBlock(player, drop);

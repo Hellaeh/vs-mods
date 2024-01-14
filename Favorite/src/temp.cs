@@ -25,6 +25,7 @@ static class GuiElementItemSlotGridBasePatchTemp
 	static int SigScan(List<CodeInstruction> codeInstructions, OpCode[] sig)
 	{
 		int i = 0;
+
 		return codeInstructions.FindIndex(inst =>
 		{
 			if (inst.opcode.Equals(sig[i]))
@@ -53,13 +54,13 @@ static class GuiElementItemSlotGridBasePatchTemp
 		CodeInstruction[] patchInsts = [
 			// push `this`
 			new(OpCodes.Ldarg_0),
-		// push `slot`
-		new(OpCodes.Ldloc_S, 8),
-		// push `key`
-		new(OpCodes.Ldloc_S, 12),
-		// call extension method
-		new(OpCodes.Call, AccessTools.Method(typeof(GuiElementItemSlotGridBasePatchTemp), nameof(DrawSlotBackgrounds))),
-	];
+			// push `slot`
+			new(OpCodes.Ldloc_S, 8),
+			// push `key`
+			new(OpCodes.Ldloc_S, 12),
+			// call extension method
+			new(OpCodes.Call, AccessTools.Method(typeof(GuiElementItemSlotGridBasePatchTemp), nameof(DrawSlotBackgrounds))),
+		];
 
 		var alreadyPatched = SigScan(insts, patchInsts.Select(inst => inst.opcode).ToArray()) - insertIdx == patchInsts.Length;
 
