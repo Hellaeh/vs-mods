@@ -28,7 +28,7 @@ static class GuiElementItemSlotGridBasePatchTemp
 
 		return codeInstructions.FindIndex(inst =>
 		{
-			if (inst.opcode.Equals(sig[i]))
+			if (inst.opcode == sig[i])
 			{
 				if (++i == sig.Length)
 					return true;
@@ -51,13 +51,16 @@ static class GuiElementItemSlotGridBasePatchTemp
 		if (insertIdx < 0)
 			goto Ret;
 
+		var slot = insts[insertIdx + 1 - sigToLook.Length].operand;
+		var key = insts[insertIdx].operand;
+
 		CodeInstruction[] patchInsts = [
 			// push `this`
 			new(OpCodes.Ldarg_0),
 			// push `slot`
-			new(OpCodes.Ldloc_S, 8),
+			new(OpCodes.Ldloc_S, slot),
 			// push `key`
-			new(OpCodes.Ldloc_S, 12),
+			new(OpCodes.Ldloc_S, key),
 			// call extension method
 			new(OpCodes.Call, AccessTools.Method(typeof(GuiElementItemSlotGridBasePatchTemp), nameof(DrawSlotBackgrounds))),
 		];
