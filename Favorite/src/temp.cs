@@ -1,6 +1,5 @@
 // ISSUE: https://github.com/anegostudios/VintageStory-Issues/issues/3305
 // FIXME: Remove this file once https://github.com/anegostudios/vsapi/pull/15 merged
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -42,7 +41,7 @@ static class GuiElementItemSlotGridBasePatchTemp
 
 	[HarmonyTranspiler]
 	[HarmonyPatch(typeof(GuiElementItemSlotGridBase), nameof(GuiElementItemSlotGridBase.RenderInteractiveElements))]
-	internal static IEnumerable<CodeInstruction> RenderInteractiveElementsTranspiler(IEnumerable<CodeInstruction> instructions)
+	static IEnumerable<CodeInstruction> RenderInteractiveElementsTranspiler(IEnumerable<CodeInstruction> instructions)
 	{
 		var insts = new List<CodeInstruction>(instructions);
 

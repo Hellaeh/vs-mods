@@ -2,13 +2,13 @@
   "type": "code",
   "modid": "helfavorite",
   "name": "Favorite",
-  "side": "client",
+  "side": "universal",
   "authors": [
     "Hellaeh"
   ],
   "description": "Favorite your items and never lose em",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "dependencies": {
-    "game": "1.19.0-rc.6"
+    "game": "1.19.0"
   }
 }
