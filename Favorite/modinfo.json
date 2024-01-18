@@ -3,11 +3,12 @@
   "modid": "helfavorite",
   "name": "Favorite",
   "side": "universal",
+  "requiredOnServer": false,
   "authors": [
     "Hellaeh"
   ],
   "description": "Favorite your items and never lose em",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "dependencies": {
     "game": "1.19.0"
   }
