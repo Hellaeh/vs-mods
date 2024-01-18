@@ -6,6 +6,20 @@ using Vintagestory.GameContent;
 
 namespace HelQuickStack;
 
+internal static class BlockEntityContainerExtensiton
+{
+	public static bool IsQuickStackSuitable(this BlockEntityContainer container)
+	{
+		if (container is BlockEntityGroundStorage)
+			return false;
+
+		if (container is BlockEntityBarrel barrel)
+			return !barrel.Sealed;
+
+		return true;
+	}
+}
+
 public class Utils
 {
 	// Math.log2(32)
@@ -50,6 +64,7 @@ public class Utils
 			return chunk == null
 				|| !chunk.BlockEntities.TryGetValue(cpos, out var entity)
 				|| entity is not BlockEntityContainer container
+				|| !container.IsQuickStackSuitable()
 				|| onInventory(container);
 		}
 

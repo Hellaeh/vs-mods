@@ -122,13 +122,13 @@ public class Core : ModSystem, IDisposable
 				slots.Push(new(slot, slotId));
 			}
 
+		if (destSlotsByItemId.Count == 0)
+			return true;
+
 		var suitableSourceSlots = new List<VirtualSlot>();
 
 		Utils.WalkNearbyContainers(cApi.World.Player, Radius, container =>
 		{
-			if (container is BlockEntityGroundStorage)
-				return true;
-
 			suitableSourceSlots.Clear();
 
 			var sourceInv = container.Inventory;
@@ -137,9 +137,9 @@ public class Core : ModSystem, IDisposable
 			if (sourceInv.TakeLocked)
 				return true;
 
-			for (int i = 0; i < sourceInv.Count; ++i)
+			for (int souceSlotId = 0; souceSlotId < sourceInv.Count; ++souceSlotId)
 			{
-				var sourceSlot = sourceInv[i];
+				var sourceSlot = sourceInv[souceSlotId];
 
 				if (sourceSlot.Empty)
 					continue;
@@ -155,8 +155,7 @@ public class Core : ModSystem, IDisposable
 					if (!destSlots.TryPop(out var destSlot))
 					{
 						destSlotsByItemId.Remove(itemId);
-
-						return true;
+						break;
 					}
 
 					if (sourceSlotRem >= destSlot.RemSpace)
@@ -174,10 +173,10 @@ public class Core : ModSystem, IDisposable
 
 					var payloadByInv = destSlot.Inventory == Favorite.Hotbar ? hotbarPayload : backpackPayload;
 
-					if (!payloadByInv.TryGetValue(sourcePos, out var slots))
-						payloadByInv.Add(sourcePos, slots = []);
+					if (!payloadByInv.TryGetValue(sourcePos, out var payloadSlots))
+						payloadByInv.Add(sourcePos, payloadSlots = []);
 
-					slots.Add((i, destSlot.Id));
+					payloadSlots.Add((souceSlotId, destSlot.Id));
 				}
 			}
 
@@ -231,9 +230,6 @@ public class Core : ModSystem, IDisposable
 
 		Utils.WalkNearbyContainers(cApi.World.Player, Radius, container =>
 		{
-			if (container is BlockEntityGroundStorage)
-				return true;
-
 			stackableItemIds.Clear();
 			nonEmptySlots.Clear();
 			emptySlots.Clear();
