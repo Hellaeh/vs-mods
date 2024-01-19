@@ -1,4 +1,5 @@
 using System;
+using System.Runtime.CompilerServices;
 
 using Vintagestory.API.Common;
 using Vintagestory.API.MathTools;
@@ -6,18 +7,19 @@ using Vintagestory.GameContent;
 
 namespace HelQuickStack;
 
-internal static class BlockEntityContainerExtensiton
+public static class BlockEntityContainerExtensiton
 {
-	public static bool IsQuickStackSuitable(this BlockEntityContainer container)
+	/// <summary>
+	/// Checks if container is suitable for quick stack/refill
+	/// </summary>
+	public static bool IsQuickStackSuitable(this BlockEntityContainer container) => container switch
 	{
-		if (container is BlockEntityGroundStorage)
-			return false;
-
-		if (container is BlockEntityBarrel barrel)
-			return !barrel.Sealed;
-
-		return true;
-	}
+		// TODO: Allow stack/refill to ground storage
+		BlockEntityGroundStorage => false,
+		// Disallow stack/refill to sealed barrels
+		BlockEntityBarrel barrel => !barrel.Sealed,
+		_ => true
+	};
 }
 
 public class Utils
@@ -51,6 +53,7 @@ public class Utils
 
 		var chunks = GetChunksInArea(ba, min, max);
 
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		bool doWork(int x, int y, int z)
 		{
 			var cpos = center.AddCopy(x, y, z);
