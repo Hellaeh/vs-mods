@@ -15,6 +15,9 @@
     <Reference Include="$(VINTAGE_STORY)/VintagestoryAPI.dll">
       <Private>false</Private>
     </Reference>
+    <Reference Include="$(VINTAGE_STORY)/Lib/Newtonsoft.Json.dll">
+      <Private>false</Private>
+    </Reference>
   </ItemGroup>
 
   <ItemGroup>

@@ -1,3 +1,5 @@
+using System;
+
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
 using Vintagestory.API.Config;
@@ -8,19 +10,33 @@ public class Core : ModSystem
 {
 	private const string ModId = "helblockpick";
 	private const string HotKey = ModId + "hotkey";
+	private const string ConfigFileName = ModId + "config.json";
 
 	private ICoreClientAPI cApi;
+
+	private Config config;
 
 	public override bool ShouldLoad(EnumAppSide forSide) => forSide == EnumAppSide.Client;
 
 	public override void StartClientSide(ICoreClientAPI api)
 	{
-		base.StartClientSide(api);
-
 		api.Input.RegisterHotKey(HotKey, Lang.Get(ModId + ":hotkey"), GlKeys.Q, HotkeyType.CharacterControls);
 		api.Input.SetHotKeyHandler(HotKey, _ => HotKeyHandler());
 
 		api.Event.MouseDown += OnMouseDown;
+
+		try
+		{
+			config = api.LoadModConfig<Config>(ConfigFileName);
+		}
+		finally
+		{
+			if (config == null)
+			{
+				config = new();
+				api.StoreModConfig(config, ConfigFileName);
+			}
+		}
 
 		cApi = api;
 	}
@@ -44,7 +60,6 @@ public class Core : ModSystem
 		if (lookingAt == null)
 			return false;
 
-		// WARNING: This returns wrong `Block` for some blocks (e.g. planks)
 		var lookingAtItemStack = lookingAt.Block.OnPickBlock(cApi.World, lookingAt.Position);
 
 		var res = PickBlock(player, lookingAtItemStack);
@@ -111,7 +126,7 @@ public class Core : ModSystem
 		return handled;
 	}
 
-	private static int GetBestSuitedHotbarSlot(IClientPlayer player)
+	private int GetBestSuitedHotbarSlot(IClientPlayer player)
 	{
 		// Hardcoded for now
 		const int hbSlots = 10;
@@ -119,29 +134,30 @@ public class Core : ModSystem
 		var hotbarInv = player.InventoryManager.GetHotbarInventory();
 		var activeSlotId = player.InventoryManager.ActiveHotbarSlotNumber;
 
-		// Scan for empty slots
-		for (int i = 0; i < hbSlots; ++i)
-			if (hotbarInv[i].Empty)
-				return i;
+		// Try to choose current active hotbar slot
+		if (config.PreferCurrentActiveSlot)
+			if (!config.IgnoreToolSlot || hotbarInv[activeSlotId].Itemstack?.Item?.Tool == null)
+				return activeSlotId;
 
-		// Use current active hotbar slot if it's a non tool 
-		if (hotbarInv[activeSlotId].Itemstack.Item?.Tool == null)
-			return activeSlotId;
+		// Try to choose any empty slot
+		if (config.PreferEmptySlot)
+			for (int i = 0; i < hbSlots; ++i)
+				if (hotbarInv[i].Empty)
+					return i;
 
-		// Scan for non tool slots
-		for (int i = 0; i < hbSlots; ++i)
-			if (hotbarInv[i].Itemstack.Item?.Tool == null)
-				return i;
+		// Try to choose any non-tool slot
+		if (config.IgnoreToolSlot)
+			for (int i = 0; i < hbSlots; ++i)
+				if (hotbarInv[i].Itemstack?.Item?.Tool == null)
+					return i;
 
-		// Return last slot
-		return hbSlots - 1;
+		// Return user defined slot
+		return config.FallbackSlot;
 	}
 
 	public override void Dispose()
 	{
 		cApi.Event.MouseDown -= OnMouseDown;
-
-		base.Dispose();
 	}
 }
 
