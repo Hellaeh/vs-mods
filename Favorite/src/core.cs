@@ -21,7 +21,7 @@ public class Core : ModSystem
 	public const string ModId = "helfavorite";
 
 	private const string hotkey = ModId + "hotkey";
-	private const string ClientConfigFile = ModId + "/ConfigClient.json";
+	private const string clientConfigFile = ModId + "/ConfigClient.json";
 
 	private Harmony harmony;
 
@@ -82,7 +82,7 @@ public class Core : ModSystem
 		api.Event.HotkeysChanged += OnHotkeyChanged;
 		OnHotkeyChanged();
 
-		config = Helper.LoadConfig<ClientConfig>(Api, ClientConfigFile);
+		config = Helper.LoadConfig<ClientConfig>(Api, clientConfigFile);
 	}
 
 	private void OnHotkeyChanged() => hotkeyCode = Api.Input.GetHotKeyByCode(hotkey).CurrentMapping.KeyCode;
@@ -136,7 +136,7 @@ public class Core : ModSystem
 
 	private void OnPlayerLeave()
 	{
-		Api.StoreModConfig(config, ClientConfigFile);
+		Api.StoreModConfig(config, clientConfigFile);
 		Api.StoreModConfig(new FavoriteSlotsConfig() { SlotsByInventory = FavoriteSlots.ToDictionary() }, FavoriteSlotsFile);
 	}
 
@@ -216,8 +216,6 @@ public class Core : ModSystem
 		Instance = null;
 
 		harmony.UnpatchAll(ModId);
-
-		base.Dispose();
 	}
 }
 

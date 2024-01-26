@@ -123,7 +123,7 @@ class InventoryBasePatch
 		if (inv.Api.Side == EnumAppSide.Server)
 			return true;
 
-		var mouseSlot = sourceSlot;
+		var mouseSlot = Core.Instance.Mouse[0];
 		var targetSlot = inv[slotId];
 
 		var mouseEmpty = mouseSlot.Empty;
@@ -135,11 +135,13 @@ class InventoryBasePatch
 		var mouseFavorite = mouseSlot.IsFavorite(0);
 		var targetFavorite = targetSlot.IsFavorite(slotId);
 
+		var isDirectMerge = op.CurrentPriority == EnumMergePriority.DirectMerge;
+
 		if (mouseFavorite == targetFavorite)
-			return true;
+			return !mouseFavorite || isDirectMerge;
 
 		// Allow only direct merge for favorite slots
-		if (op.CurrentPriority != EnumMergePriority.DirectMerge)
+		if (!isDirectMerge)
 			return false;
 
 		var matchItemstack = !targetEmpty && targetSlot.Itemstack.Satisfies(mouseSlot.Itemstack);
@@ -191,7 +193,7 @@ class InventoryBasePatch
 		{
 			(true, true) or (false, false) => true,
 			(true, _) => (__state = SwapOrBlock(sourceSlot, destSlot)) != null,
-			(_, true) => (__state = SwapOrBlock(destSlot, sourceSlot)) != null,
+			(_, true) => (__state = SwapOrBlock(destSlot, sourceSlot)) != null
 		};
 	}
 
