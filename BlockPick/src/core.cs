@@ -1,5 +1,3 @@
-using System;
-
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
 using Vintagestory.API.Config;
@@ -8,11 +6,12 @@ namespace HelBlockPick;
 
 public class Core : ModSystem
 {
-	private const string ModId = "helblockpick";
-	private const string HotKey = ModId + "hotkey";
+	public const string ModId = "helblockpick";
+
+	private const string Hotkey = "pickblock";
 	private const string ConfigFileName = ModId + "config.json";
 
-	private ICoreClientAPI cApi;
+	public ICoreClientAPI Api { get; private set; }
 
 	private Config config;
 
@@ -20,11 +19,6 @@ public class Core : ModSystem
 
 	public override void StartClientSide(ICoreClientAPI api)
 	{
-		api.Input.RegisterHotKey(HotKey, Lang.Get(ModId + ":hotkey"), GlKeys.Q, HotkeyType.CharacterControls);
-		api.Input.SetHotKeyHandler(HotKey, _ => HotKeyHandler());
-
-		api.Event.MouseDown += OnMouseDown;
-
 		try
 		{
 			config = api.LoadModConfig<Config>(ConfigFileName);
@@ -38,35 +32,39 @@ public class Core : ModSystem
 			}
 		}
 
-		cApi = api;
+		api.Event.PlayerJoin += OnPlayerJoin;
+
+		Api = api;
 	}
 
-	private void OnMouseDown(MouseEvent e)
+	private void OnPlayerJoin(IClientPlayer _)
 	{
-		if (e.Button != EnumMouseButton.Middle)
-			return;
+		var hk = Api.Input.GetHotKeyByCode(Hotkey);
+		hk.KeyCombinationType = HotkeyType.CharacterControls;
 
-		if (cApi.World.Player.WorldData.CurrentGameMode != EnumGameMode.Survival)
-			return;
+		var originalHandler = hk.Handler;
 
-		e.Handled = HotKeyHandler();
+		bool newHandler(KeyCombination key) =>
+			(Api.World.Player.WorldData.CurrentGameMode == EnumGameMode.Survival && Handler()) || originalHandler(key);
+
+		Api.Input.SetHotKeyHandler(Hotkey, newHandler);
 	}
 
-	private bool HotKeyHandler()
+	private bool Handler()
 	{
-		var player = cApi.World.Player;
+		var player = Api.World.Player;
 		var lookingAt = player.CurrentBlockSelection;
 
-		if (lookingAt == null)
+		if (lookingAt?.Block == null || lookingAt?.Position == null)
 			return false;
 
-		var lookingAtItemStack = lookingAt.Block.OnPickBlock(cApi.World, lookingAt.Position);
+		var lookingAtItemStack = lookingAt.Block.OnPickBlock(Api.World, lookingAt.Position);
 
 		var res = PickBlock(player, lookingAtItemStack);
 
 		// HACK: If `OnBlockPick` fails - we fallback to `GetDrops`
 		if (!res)
-			foreach (var drop in lookingAt.Block.GetDrops(cApi.World, lookingAt.Position, player))
+			foreach (var drop in lookingAt.Block.GetDrops(Api.World, lookingAt.Position, player))
 				return PickBlock(player, drop);
 
 		return res;
@@ -101,7 +99,7 @@ public class Core : ModSystem
 					var packet = player.InventoryManager.GetHotbarInventory().TryFlipItems(bestSlotIdx, slot);
 
 					if (packet != null)
-						cApi.Network.SendPacketClient(packet);
+						Api.Network.SendPacketClient(packet);
 
 					break;
 
@@ -116,7 +114,7 @@ public class Core : ModSystem
 				default:
 					var ERR_MSG = $"BlockPick Error: Unknown inventory class - \"{inv.ClassName}\". Report this error to author.";
 					player.ShowChatNotification(ERR_MSG);
-					cApi.Logger.Warning(ERR_MSG);
+					Api.Logger.Warning(ERR_MSG);
 					break;
 			}
 
@@ -157,7 +155,7 @@ public class Core : ModSystem
 
 	public override void Dispose()
 	{
-		cApi.Event.MouseDown -= OnMouseDown;
+		Api.Event.PlayerJoin -= OnPlayerJoin;
 	}
 }
 

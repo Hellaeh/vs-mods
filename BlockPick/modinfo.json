@@ -6,9 +6,9 @@
     "Hellaeh"
   ],
   "side": "client",
-  "description": "Imitates creative mode middle click on hotkey",
-  "version": "2.2.0",
+  "description": "Allows to use pick block in survival mode while limiting it to your inventory content (non-cheaty)",
+  "version": "2.3.0",
   "dependencies": {
-    "game": "1.19.0"
+    "game": "1.19.4-rc.1"
   }
 }
