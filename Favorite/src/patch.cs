@@ -58,7 +58,7 @@ class GuiDialogInventoryPatch
 			if (slot.Empty || !slot.IsFavorite(slotId))
 				continue;
 
-			var op = new ItemStackMoveOperation(Core.Instance.Api.World, EnumMouseButton.Button1, 0, EnumMergePriority.AutoMerge, slot.StackSize)
+			var op = new ItemStackMoveOperation(Core.Instance.Api.World, EnumMouseButton.Left, 0, EnumMergePriority.AutoMerge, slot.StackSize)
 			{
 				ActingPlayer = player
 			};

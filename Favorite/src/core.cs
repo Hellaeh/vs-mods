@@ -107,11 +107,10 @@ public class Core : ModSystem
 		Api.Event.MouseDown += OnMouseDown;
 		Api.Event.MouseUp += OnMouseUp;
 
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		// Simple throttle
 		static Action<int> OnModified(IInventory inv)
 		{
-			const int INTERVAL = 50;
+			const long INTERVAL = 50;
 
 			int lastSlotId = -1;
 			long lastTime = 0;
