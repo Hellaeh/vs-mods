@@ -92,17 +92,7 @@ public class Core : ModSystem
 					player.InventoryManager.ActiveHotbarSlotNumber = inv.GetSlotId(slot);
 					break;
 
-				case GlobalConstants.backpackInvClassName:
-					var bestSlotIdx = GetBestSuitedHotbarSlot(player);
-					player.InventoryManager.ActiveHotbarSlotNumber = bestSlotIdx;
-
-					var packet = player.InventoryManager.GetHotbarInventory().TryFlipItems(bestSlotIdx, slot);
-
-					if (packet != null)
-						Api.Network.SendPacketClient(packet);
-
-					break;
-
+				// REMINDER: Add inventory classnames you want to ignore here
 				case GlobalConstants.characterInvClassName:
 				case GlobalConstants.craftingInvClassName:
 				case GlobalConstants.creativeInvClassName:
@@ -110,11 +100,16 @@ public class Core : ModSystem
 				case GlobalConstants.mousecursorInvClassName:
 					break;
 
-				// For mod compatibility?
 				default:
-					var ERR_MSG = $"BlockPick Error: Unknown inventory class - \"{inv.ClassName}\". Report this error to author.";
-					player.ShowChatNotification(ERR_MSG);
-					Api.Logger.Warning(ERR_MSG);
+					var bestSlotIdx = GetBestSuitedHotbarSlot(player);
+					var packet = player.InventoryManager.GetHotbarInventory().TryFlipItems(bestSlotIdx, slot);
+
+					if (packet == null)
+						break;
+
+					Api.Network.SendPacketClient(packet);
+					player.InventoryManager.ActiveHotbarSlotNumber = bestSlotIdx;
+
 					break;
 			}
 

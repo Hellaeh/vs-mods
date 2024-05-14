@@ -7,8 +7,8 @@
   ],
   "side": "client",
   "description": "Allows to use pick block in survival mode while limiting it to your inventory content (non-cheaty)",
-  "version": "2.3.0",
+  "version": "2.4.0",
   "dependencies": {
-    "game": "1.19.4-rc.1"
+    "game": "1.19.4"
   }
 }
