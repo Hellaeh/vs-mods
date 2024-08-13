@@ -8,8 +8,8 @@
     "Hellaeh"
   ],
   "description": "Favorite your items and never lose em",
-  "version": "0.3.4",
+  "version": "0.3.5",
   "dependencies": {
-    "game": "1.19.4-rc.1"
+    "game": "1.19.4"
   }
 }

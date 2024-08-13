@@ -89,6 +89,9 @@ public class Core : ModSystem
 
 	private void OnPlayerJoin(IClientPlayer player)
 	{
+		if (player != Api.World.Player)
+			return;
+
 		Backpack = player.InventoryManager.GetOwnInventory(GlobalConstants.backpackInvClassName);
 		CraftingGrid = player.InventoryManager.GetOwnInventory(GlobalConstants.craftingInvClassName);
 		Hotbar = player.InventoryManager.GetOwnInventory(GlobalConstants.hotBarInvClassName);
@@ -135,6 +138,8 @@ public class Core : ModSystem
 
 	private void OnPlayerLeave()
 	{
+		// WARNING: Should add check for player here?
+
 		Api.StoreModConfig(config, clientConfigFile);
 		Api.StoreModConfig(new FavoriteSlotsConfig() { SlotsByInventory = FavoriteSlots.ToDictionary() }, FavoriteSlotsFile);
 	}
