@@ -1,9 +1,7 @@
 ﻿using System;
-using System.Linq;
 
 using HarmonyLib;
 using Vintagestory.API.Common;
-using Vintagestory.API.Datastructures;
 using Vintagestory.API.Server;
 
 namespace HelNormalizer;
@@ -11,9 +9,7 @@ namespace HelNormalizer;
 public class Core : ModSystem
 {
 	public static GridRecipe Recipe { get; private set; }
-
-	private int chiseledBlockId;
-	private ICoreServerAPI sApi;
+	public static int ChiseledBlockId { get; private set; }
 
 	private Harmony harmony;
 	private const string harmonyId = "helnormalizerharmony";
@@ -24,20 +20,36 @@ public class Core : ModSystem
 	{
 		RegisterRecipe(api);
 
+		// FIXME: Remove once duping issue is fixed
+		TempDisableMultiblockCraftingRecipe(api);
+
 		harmony = new Harmony(harmonyId);
 		harmony.PatchAll();
-
-		api.Event.MatchesGridRecipe += OnGridRecipeMatch;
-
-		sApi = api;
 	}
 
-	private void RegisterRecipe(ICoreServerAPI api)
+	// FIXME: Remove once duping issue is fixed
+	private static void TempDisableMultiblockCraftingRecipe(ICoreServerAPI api)
+	{
+		foreach (var recipe in api.World.GridRecipes)
+		{
+			if (!recipe.Shapeless) continue;
+
+			var assetName = recipe.Name.ToString();
+
+			if (!assetName.EndsWith("chiseledblockcombine.json", true, null))
+				continue;
+
+			recipe.Enabled = false;
+			break;
+		}
+	}
+
+	private static void RegisterRecipe(ICoreServerAPI api)
 	{
 		const string CB = "chiseledblock";
-		const string PATTERN = "S";
+		const string PATTERN = "P";
 
-		var block = Array.Find(api.World.SearchBlocks(new(CB)), block => block.Code.GetName() == CB);
+		var block = Array.Find(api.World.SearchBlocks(new(CB)), static block => block.Code.GetName() == CB);
 
 		if (block == null)
 			return;
@@ -53,7 +65,7 @@ public class Core : ModSystem
 
 		Recipe = new GridRecipe()
 		{
-			Shapeless = true,
+			Shapeless = false,
 			IngredientPattern = PATTERN,
 			Width = 1,
 			Height = 1,
@@ -68,46 +80,7 @@ public class Core : ModSystem
 		};
 
 		api.RegisterCraftingRecipe(Recipe);
-		chiseledBlockId = block.Id;
-	}
-
-	private bool OnGridRecipeMatch(IPlayer player, GridRecipe recipe, ItemSlot[] inputSlots, int gridWidth)
-	{
-		// `MatchesGridRecipe` will fire for every single recipe in game, so we filter em
-		if (Recipe != recipe)
-			return true;
-
-		var count = 0;
-		ItemSlot match = null;
-
-		foreach (var slot in inputSlots)
-		{
-			if (slot.Empty)
-				continue;
-
-			++count;
-
-			if (slot.Itemstack.Id == chiseledBlockId)
-				match = slot;
-		}
-
-		if (match == null || count > 1)
-			return true;
-
-		var materials = (match.Itemstack.Attributes["materials"] as IntArrayAttribute).value;
-
-		// First id is initial block, which could be a variant `ew`, `ud` etc, that should not be obtained in survival
-		var initialBlock = sApi.World.GetBlock(materials[0]);
-		foreach (var drop in initialBlock.Drops.Take(1))
-			initialBlock = drop.ResolvedItemstack?.Block ?? initialBlock;
-
-		recipe.Output = new()
-		{
-			Code = initialBlock.Code,
-			ResolvedItemstack = new(initialBlock),
-		};
-
-		return true;
+		ChiseledBlockId = block.Id;
 	}
 
 	public override void Dispose()
