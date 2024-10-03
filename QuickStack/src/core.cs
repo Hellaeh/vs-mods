@@ -25,6 +25,8 @@ public class Core : ModSystem, IDisposable
 	private const string channel = ModId + "channel";
 	private const string serverConfigFile = ModId + "ConfigServer.json";
 
+	private readonly AssetLocation SFX_Rattle = new(ModId + ":sounds/rattle");
+
 	// Offset to ignore slots for bags
 	public const int BagsOffset = 4;
 
@@ -85,11 +87,9 @@ public class Core : ModSystem, IDisposable
 
 	private void OnSuccess(SuccessPacket packet)
 	{
-		var rattle = new AssetLocation(ModId + ":sounds/rattle");
-
 		// TODO: Add shaking animation or something
 		foreach (var pos in packet.Payload)
-			cApi.World.PlaySoundAt(rattle, pos.X + .5, pos.Y, pos.Z + .5);
+			cApi.World.PlaySoundAt(SFX_Rattle, pos.X + .5, pos.Y, pos.Z + .5);
 	}
 
 	private bool QuickRefill()
@@ -353,39 +353,41 @@ public class Core : ModSystem, IDisposable
 
 	private void ServerMoveItems(IServerPlayer player, BulkMoveItemsPacket packet)
 	{
-		var playerInv = player.InventoryManager.GetOwnInventory(
+		var playerInv = (InventoryBase)player.InventoryManager.GetOwnInventory(
 			packet.Operation == Operation.QuickRefillHotbar
 				? GlobalConstants.hotBarInvClassName
 				: GlobalConstants.backpackInvClassName
 		);
-
 		var world = player.Entity.World;
+		var successPacket = new SuccessPacket();
 
-		var successPacket = new SuccessPacket() { Payload = [] };
+		InventoryBase sourceInv;
+		InventoryBase destInv;
 
 		foreach ((var pos, List<SourceDestIds> slotPairs) in packet.Payload)
 		{
 			if (world.BlockAccessor.GetBlockEntity(pos) is not BlockEntityContainer container)
+				// Something terrible happened so we bail
 				break;
 
 			var containerInv = container.Inventory;
 			var transferedAmount = 0;
 
+			if (packet.Operation == Operation.QuickStack)
+			{
+				sourceInv = playerInv;
+				destInv = containerInv;
+			}
+			else
+			{
+				sourceInv = containerInv;
+				destInv = playerInv;
+			}
+
 			foreach ((var sId, var dId) in slotPairs)
 			{
-				ItemSlot sourceSlot;
-				ItemSlot destSlot;
-
-				if (packet.Operation == Operation.QuickStack)
-				{
-					sourceSlot = playerInv[sId];
-					destSlot = containerInv[dId];
-				}
-				else
-				{
-					sourceSlot = containerInv[sId];
-					destSlot = playerInv[dId];
-				}
+				var sourceSlot = sourceInv[sId];
+				var destSlot = destInv[dId];
 
 				if (sourceSlot == null || destSlot == null)
 					continue;
