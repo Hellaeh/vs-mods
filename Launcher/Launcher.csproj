@@ -14,7 +14,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Reference Include="$(VINTAGE_STORY)/Vintagestory.dll">
+    <Reference Include="$(VINTAGE_STORY)/VintagestoryLib.dll">
       <Private>true</Private>
     </Reference>
   </ItemGroup>

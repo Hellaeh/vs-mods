@@ -1,3 +1,5 @@
+$ErrorActionPreference = "Stop"
+
 function test-modinfo($arg) {
 	if (-not (test-path "$arg\modinfo.json")) {
 		throw [System.IO.FileNotFoundException] """modinfo.json"" not found."

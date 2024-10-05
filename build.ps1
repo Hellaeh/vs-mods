@@ -1,6 +1,6 @@
-import-module "$PSScriptRoot\utils.psm1" -scope local -force;
-
 $ErrorActionPreference = "Stop"
+
+import-module "$PSScriptRoot\utils.psm1" -scope local -force;
 
 $path = get-mod $args[0];
 $modinfo = get-modinfo $path;
@@ -21,7 +21,7 @@ if (-not (test-path "releases")) {
 
 $(
 	if ($isCode) {
-		dotnet build --no-incremental -c release /p:Optimize=true /p:DebugType=PdbOnly /p:DebugSymbols=false $path;
+		dotnet build --no-incremental -c release /p:Optimize=true /p:DebugType=PdbOnly $path;
 	} else {
 		$modbuild = $path;
 	}

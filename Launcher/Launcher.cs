@@ -1,11 +1,13 @@
 // Took from - https://github.com/TeacupAngel/VSModTemplate
+using Vintagestory.Client;
+
 namespace Launcher;
 
-public class Launcher
+class Launcher
 {
 	public static void Main(string[] args)
 	{
-		VintagestoryClientWindows.ClientWindows.Main(args);
+		ClientProgram.Main(args);
 	}
 }
 
