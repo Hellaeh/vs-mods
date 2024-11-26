@@ -64,7 +64,7 @@ static class GuiElementItemSlotGridBasePatchTemp
 			new(OpCodes.Call, AccessTools.Method(typeof(GuiElementItemSlotGridBasePatchTemp), nameof(DrawSlotBackgrounds))),
 		];
 
-		var alreadyPatched = SigScan(insts, patchInsts.Select(inst => inst.opcode).ToArray()) - insertIdx == patchInsts.Length;
+		var alreadyPatched = SigScan(insts, patchInsts.Select(static inst => inst.opcode).ToArray()) - insertIdx == patchInsts.Length;
 
 		if (alreadyPatched)
 			goto Ret;

@@ -76,8 +76,8 @@ public class Core : ModSystem
 
 		api.Input.RegisterHotKey(hotkey, Lang.Get(ModId + ":hotkey"), GlKeys.AltLeft, HotkeyType.InventoryHotkeys);
 
-		api.Event.PlayerJoin += OnPlayerJoin;
-		api.Event.LeaveWorld += OnPlayerLeave;
+		api.Event.LevelFinalize += Init;
+		api.Event.LeaveWorld += Cleanup;
 
 		api.Event.HotkeysChanged += OnHotkeyChanged;
 		OnHotkeyChanged();
@@ -87,10 +87,9 @@ public class Core : ModSystem
 
 	private void OnHotkeyChanged() => hotkeyCode = Api.Input.GetHotKeyByCode(hotkey).CurrentMapping.KeyCode;
 
-	private void OnPlayerJoin(IClientPlayer player)
+	private void Init()
 	{
-		if (player != Api.World.Player)
-			return;
+		var player = Api.World.Player;
 
 		Backpack = player.InventoryManager.GetOwnInventory(GlobalConstants.backpackInvClassName);
 		CraftingGrid = player.InventoryManager.GetOwnInventory(GlobalConstants.craftingInvClassName);
@@ -136,10 +135,8 @@ public class Core : ModSystem
 		Hotbar.SlotModified += OnModified(Hotbar);
 	}
 
-	private void OnPlayerLeave()
+	private void Cleanup()
 	{
-		// WARNING: Should add check for player here?
-
 		Api.StoreModConfig(config, clientConfigFile);
 		Api.StoreModConfig(new FavoriteSlotsConfig() { SlotsByInventory = FavoriteSlots.ToDictionary() }, FavoriteSlotsFile);
 	}
@@ -209,8 +206,8 @@ public class Core : ModSystem
 
 	public override void Dispose()
 	{
-		Api.Event.PlayerJoin -= OnPlayerJoin;
-		Api.Event.LeaveWorld -= OnPlayerLeave;
+		Api.Event.LevelFinalize -= Init;
+		Api.Event.LeaveWorld -= Cleanup;
 
 		Api.Event.MouseDown -= OnMouseDown;
 		Api.Event.MouseUp -= OnMouseUp;
