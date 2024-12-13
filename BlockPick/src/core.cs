@@ -11,7 +11,7 @@ public class Core : ModSystem
 	private const string Hotkey = "pickblock";
 	private const string ConfigFileName = ModId + "config.json";
 
-	public ICoreClientAPI Api { get; private set; }
+	private ICoreClientAPI api;
 
 	private Config config;
 
@@ -19,6 +19,8 @@ public class Core : ModSystem
 
 	public override void StartClientSide(ICoreClientAPI api)
 	{
+		this.api = api;
+
 		try
 		{
 			config = api.LoadModConfig<Config>(ConfigFileName);
@@ -32,39 +34,37 @@ public class Core : ModSystem
 			}
 		}
 
-		api.Event.PlayerJoin += OnPlayerJoin;
-
-		Api = api;
+		api.Event.LevelFinalize += Init;
 	}
 
-	private void OnPlayerJoin(IClientPlayer _)
+	private void Init()
 	{
-		var hk = Api.Input.GetHotKeyByCode(Hotkey);
+		var hk = api.Input.GetHotKeyByCode(Hotkey);
 		hk.KeyCombinationType = HotkeyType.CharacterControls;
 
 		var originalHandler = hk.Handler;
 
 		bool newHandler(KeyCombination key) =>
-			(Api.World.Player.WorldData.CurrentGameMode == EnumGameMode.Survival && Handler()) || originalHandler(key);
+			(api.World.Player.WorldData.CurrentGameMode == EnumGameMode.Survival && Handler()) || originalHandler(key);
 
-		Api.Input.SetHotKeyHandler(Hotkey, newHandler);
+		api.Input.SetHotKeyHandler(Hotkey, newHandler);
 	}
 
 	private bool Handler()
 	{
-		var player = Api.World.Player;
+		var player = api.World.Player;
 		var lookingAt = player.CurrentBlockSelection;
 
 		if (lookingAt?.Block == null || lookingAt?.Position == null)
 			return false;
 
-		var lookingAtItemStack = lookingAt.Block.OnPickBlock(Api.World, lookingAt.Position);
+		var lookingAtItemStack = lookingAt.Block.OnPickBlock(api.World, lookingAt.Position);
 
 		var res = PickBlock(player, lookingAtItemStack);
 
 		// HACK: If `OnBlockPick` fails - we fallback to `GetDrops`
 		if (!res)
-			foreach (var drop in lookingAt.Block.GetDrops(Api.World, lookingAt.Position, player))
+			foreach (var drop in lookingAt.Block.GetDrops(api.World, lookingAt.Position, player))
 				return PickBlock(player, drop);
 
 		return res;
@@ -107,7 +107,7 @@ public class Core : ModSystem
 					if (packet == null)
 						break;
 
-					Api.Network.SendPacketClient(packet);
+					api.Network.SendPacketClient(packet);
 					player.InventoryManager.ActiveHotbarSlotNumber = bestSlotIdx;
 
 					break;
@@ -150,7 +150,7 @@ public class Core : ModSystem
 
 	public override void Dispose()
 	{
-		Api.Event.PlayerJoin -= OnPlayerJoin;
+		api.Event.LevelFinalize -= Init;
 	}
 }
 
