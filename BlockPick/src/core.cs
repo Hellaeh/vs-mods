@@ -1,6 +1,8 @@
+using System.Linq;
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
 using Vintagestory.API.Config;
+using Vintagestory.API.MathTools;
 
 namespace HelBlockPick;
 
@@ -14,6 +16,8 @@ public class Core : ModSystem
 	private ICoreClientAPI api;
 
 	private Config config;
+
+	private ActionConsumable<KeyCombination> originalHandler;
 
 	public override bool ShouldLoad(EnumAppSide forSide) => forSide == EnumAppSide.Client;
 
@@ -42,32 +46,35 @@ public class Core : ModSystem
 		var hk = api.Input.GetHotKeyByCode(Hotkey);
 		hk.KeyCombinationType = HotkeyType.CharacterControls;
 
-		var originalHandler = hk.Handler;
+		originalHandler = hk.Handler;
 
-		bool newHandler(KeyCombination key) =>
-			(api.World.Player.WorldData.CurrentGameMode == EnumGameMode.Survival && Handler()) || originalHandler(key);
-
-		api.Input.SetHotKeyHandler(Hotkey, newHandler);
+		api.Input.SetHotKeyHandler(Hotkey, Handler);
 	}
 
-	private bool Handler()
-	{
-		var player = api.World.Player;
-		var lookingAt = player.CurrentBlockSelection;
+	private bool Handler(KeyCombination key)
+		=> (api.World.Player.WorldData.CurrentGameMode == EnumGameMode.Survival && Handle(key)) || originalHandler(key);
 
-		if (lookingAt?.Block == null || lookingAt?.Position == null)
+	private bool Handle(KeyCombination key)
+	{
+		if (key.OnKeyUp)
 			return false;
 
-		var lookingAtItemStack = lookingAt.Block.OnPickBlock(api.World, lookingAt.Position);
+		if (api.World.Player is not IClientPlayer player || player.CurrentBlockSelection is not BlockSelection selection)
+			return false;
+		if (selection.Block is not Block block || selection.Position is not BlockPos pos)
+			return false;
 
-		var res = PickBlock(player, lookingAtItemStack);
+		if (block.OnPickBlock(api.World, pos) is not ItemStack stack)
+			return false;
 
-		// HACK: If `OnBlockPick` fails - we fallback to `GetDrops`
-		if (!res)
-			foreach (var drop in lookingAt.Block.GetDrops(api.World, lookingAt.Position, player))
-				return PickBlock(player, drop);
+		if (PickBlock(player, stack))
+			return true;
 
-		return res;
+		foreach (var drop in block.GetDrops(api.World, pos, player) ?? Enumerable.Empty<ItemStack>())
+			if (PickBlock(player, drop))
+				return true;
+
+		return false;
 	}
 
 	// WARNING: There might be a sneaky bug about first four slots of backpack inventory
@@ -150,6 +157,7 @@ public class Core : ModSystem
 
 	public override void Dispose()
 	{
+		api.Input.SetHotKeyHandler(Hotkey, originalHandler);
 		api.Event.LevelFinalize -= Init;
 	}
 }
