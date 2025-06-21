@@ -19,11 +19,15 @@ public class Core : ModSystem, IDisposable
 {
 	public const string ModId = "helquickstack";
 
+	public static ClientConfig Config { get; private set; }
+
+	// WARNING: Keep hotkeys IDs as is 
 	private const string quickRefillHK = ModId + "hotkey2";
 	private const string quickStackHK = ModId + "hotkey";
 
 	private const string channel = ModId + "channel";
 	private const string serverConfigFile = ModId + "ConfigServer.json";
+	private const string clientConfigFile = ModId + "ConfigClient.json";
 
 	private readonly AssetLocation SFX_Rattle = new(ModId + ":sounds/rattle");
 
@@ -43,8 +47,6 @@ public class Core : ModSystem, IDisposable
 
 	public override void Start(ICoreAPI api)
 	{
-		base.Start(api);
-
 		api.Network.RegisterChannel(channel)
 			.RegisterMessageType<BulkMoveItemsPacket>()
 			.RegisterMessageType<RadiusPacket>()
@@ -53,9 +55,7 @@ public class Core : ModSystem, IDisposable
 
 	public override void StartServerSide(ICoreServerAPI api)
 	{
-		base.StartServerSide(api);
-
-		int radius = Math.Min(Helper.LoadConfig<ServerConfig>(api, serverConfigFile).Radius, maxRadius);
+		int radius = Math.Min(Helper.LoadConfig<ServerConfig>(api, serverConfigFile).MaxRadius, maxRadius);
 
 		var maxViewDistance = api.Server.Config.MaxChunkRadius << Utils.ChunkShift;
 
@@ -64,12 +64,12 @@ public class Core : ModSystem, IDisposable
 
 		api.Event.PlayerJoin += player => sChannel.SendPacket(new RadiusPacket() { Payload = Math.Min(radius, maxViewDistance) }, player);
 
-		api.StoreModConfig<ServerConfig>(new() { Radius = radius }, serverConfigFile);
+		api.StoreModConfig<ServerConfig>(new() { MaxRadius = radius }, serverConfigFile);
 	}
 
 	public override void StartClientSide(ICoreClientAPI api)
 	{
-		base.StartClientSide(api);
+		Config = Helper.LoadConfig(api, clientConfigFile, ClientConfig.Default());
 
 		api.Input.RegisterHotKey(quickRefillHK, Lang.Get(ModId + ":quickrefill"), GlKeys.X, HotkeyType.InventoryHotkeys, ctrlPressed: true);
 		api.Input.RegisterHotKey(quickStackHK, Lang.Get(ModId + ":quickstack"), GlKeys.X, HotkeyType.InventoryHotkeys);
@@ -82,8 +82,12 @@ public class Core : ModSystem, IDisposable
 			.SetMessageHandler<RadiusPacket>(packet => Radius = Math.Min(packet.Payload, maxRadius))
 			.SetMessageHandler<SuccessPacket>(OnSuccess);
 
-		Favorite = cApi.ModLoader.GetModSystem<HelFavorite.Core>();
+		Favorite = api.ModLoader.GetModSystem<HelFavorite.Core>();
+
+		api.Event.LeaveWorld += Cleanup;
 	}
+
+	private void Cleanup() => cApi.StoreModConfig(Config, clientConfigFile);
 
 	private void OnSuccess(SuccessPacket packet)
 	{
@@ -408,7 +412,10 @@ public class Core : ModSystem, IDisposable
 
 	public override void Dispose()
 	{
+		if (cApi != null)
+			cApi.Event.LeaveWorld -= Cleanup;
+
 		Favorite?.Dispose();
-		base.Dispose();
+		Config = null;
 	}
 }

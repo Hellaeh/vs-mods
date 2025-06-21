@@ -10,11 +10,29 @@ namespace HelQuickStack;
 public static class BlockEntityContainerExtensiton
 {
 	/// <summary>
+	/// Checks if container is allowed by user config
+	/// </summary>
+	// 
+	// truth table W(hitelist) B(lacklist) F(ound) N(ot found)
+	//         |-----|
+	//         |-|W|B|
+	//         |F|1|0|
+	//         |N|0|1|
+	//         |-----|
+	// 
+	public static bool IsAllowed(this BlockEntityContainer container)
+		=> Core.Config.GetRules().ContainsKey(container.InventoryClassName) == (Core.Config.Mode == Mode.Whitelist);
+
+	[Obsolete("Use `IsSuitable`. Will be removed in 1.0")]
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
+	public static bool IsQuickStackSuitable(this BlockEntityContainer container) => IsSuitable(container);
+
+	/// <summary>
 	/// Checks if container is suitable for quick stack/refill
 	/// </summary>
-	public static bool IsQuickStackSuitable(this BlockEntityContainer container) => container switch
+	public static bool IsSuitable(this BlockEntityContainer container) => container switch
 	{
-		// TODO: Allow stack/refill to ground storage
+		// TODO: Allow stack/refill to ground storage, once it fixed
 		BlockEntityGroundStorage => false,
 		// Disallow stack/refill to sealed barrels
 		BlockEntityBarrel barrel => !barrel.Sealed,
@@ -28,7 +46,7 @@ public class Utils
 	public const int ChunkShift = 5;
 
 	/// <summary>
-	/// Will walk nearby containers in "radius"(manhattan distance)
+	/// Walks nearby containers in "radius"(manhattan distance)
 	/// </summary>
 	public static void WalkNearbyContainers(IPlayer player, int radius, ActionConsumable<BlockEntityContainer> onInventory)
 	{
@@ -37,6 +55,7 @@ public class Utils
 
 		var plPos = player.Entity.Pos;
 		var center = plPos.AsBlockPos.Copy();
+		// in case player standing on a non full block like a chest
 		center.Y = (int)Math.Ceiling(plPos.Y);
 
 		var min = center.AddCopy(-r, -r, -r);
@@ -64,10 +83,12 @@ public class Utils
 
 			var chunk = chunks[i];
 
+			// true - continue, false - break
 			return chunk == null
 				|| !chunk.BlockEntities.TryGetValue(cpos, out var entity)
 				|| entity is not BlockEntityContainer container
-				|| !container.IsQuickStackSuitable()
+				|| !container.IsSuitable()
+				|| !container.IsAllowed()
 				|| onInventory(container);
 		}
 
