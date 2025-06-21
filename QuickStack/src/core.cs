@@ -79,7 +79,7 @@ public class Core : ModSystem, IDisposable
 
 		cApi = api;
 		cChannel = api.Network.GetChannel(channel)
-			.SetMessageHandler<RadiusPacket>(packet => Radius = Math.Min(packet.Payload, maxRadius))
+			.SetMessageHandler<RadiusPacket>(packet => Radius = Math.Min(Config.Radius, Math.Min(packet.Payload, maxRadius)))
 			.SetMessageHandler<SuccessPacket>(OnSuccess);
 
 		Favorite = api.ModLoader.GetModSystem<HelFavorite.Core>();
