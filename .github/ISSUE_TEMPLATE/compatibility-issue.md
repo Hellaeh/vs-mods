@@ -1,7 +1,7 @@
 ---
 name: Compatibility Issue
 about: Create a report to help us improve
-title: "[Mod Name] Compatibility issue"
+title: "[Mod Name and Version][Game Version] Compatibility issue"
 labels: mod compatibility
 assignees: ''
 
