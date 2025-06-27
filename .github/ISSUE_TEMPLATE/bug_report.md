@@ -1,7 +1,7 @@
 ---
 name: Bug report
 about: Create a report to help us improve
-title: "[Mod Name] Title"
+title: "[Mod Name and Version][Game Version] Title"
 labels: ''
 assignees: ''
 
