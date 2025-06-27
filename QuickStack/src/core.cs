@@ -19,7 +19,7 @@ public class Core : ModSystem, IDisposable
 {
 	public const string ModId = "helquickstack";
 
-	public static ClientConfig Config { get; private set; }
+	public static ClientConfig? Config { get; private set; }
 
 	// WARNING: Keep hotkeys IDs as is 
 	private const string quickRefillHK = ModId + "hotkey2";
@@ -37,13 +37,13 @@ public class Core : ModSystem, IDisposable
 	private const int maxRadius = 256;
 	public static int Radius { get; private set; }
 
-	public HelFavorite.Core Favorite { get; private set; }
+	public HelFavorite.Core? Favorite { get; private set; }
 
-	private ICoreClientAPI cApi;
-	private IClientNetworkChannel cChannel;
-	private IServerNetworkChannel sChannel;
+	private ICoreClientAPI? cApi;
+	private IClientNetworkChannel? cChannel;
+	private IServerNetworkChannel? sChannel;
 
-	private IInventory backpackInv => cApi.World.Player.InventoryManager.GetOwnInventory(GlobalConstants.backpackInvClassName);
+	private IInventory backpackInv => cApi!.World.Player.InventoryManager.GetOwnInventory(GlobalConstants.backpackInvClassName);
 
 	public override void Start(ICoreAPI api)
 	{
@@ -77,6 +77,8 @@ public class Core : ModSystem, IDisposable
 		api.Input.SetHotKeyHandler(quickRefillHK, _ => QuickRefill());
 		api.Input.SetHotKeyHandler(quickStackHK, _ => QuickStack());
 
+		ChatCommands.Register(api);
+
 		cApi = api;
 		cChannel = api.Network.GetChannel(channel)
 			.SetMessageHandler<RadiusPacket>(packet => Radius = Math.Min(Config.Radius, Math.Min(packet.Payload, maxRadius)))
@@ -87,13 +89,13 @@ public class Core : ModSystem, IDisposable
 		api.Event.LeaveWorld += Cleanup;
 	}
 
-	private void Cleanup() => cApi.StoreModConfig(Config, clientConfigFile);
+	private void Cleanup() => cApi!.StoreModConfig(Config, clientConfigFile);
 
 	private void OnSuccess(SuccessPacket packet)
 	{
 		// TODO: Add shaking animation or something
 		foreach (var pos in packet.Payload)
-			cApi.World.PlaySoundAt(SFX_Rattle, pos.X + .5, pos.Y, pos.Z + .5);
+			cApi!.World.PlaySoundAt(SFX_Rattle, pos.X + .5, pos.Y, pos.Z + .5);
 	}
 
 	private bool QuickRefill()
@@ -104,7 +106,7 @@ public class Core : ModSystem, IDisposable
 		Dictionary<BlockPos, List<SourceDestIds>> hotbarPayload = [];
 		Dictionary<BlockPos, List<SourceDestIds>> backpackPayload = [];
 
-		var favSlotsByInv = Favorite.FavoriteSlots;
+		var favSlotsByInv = Favorite!.FavoriteSlots;
 		var favSlotsFromHotbarAndBackpack = favSlotsByInv
 			.Where(kv => kv.Key == Favorite.Backpack)
 			.Concat(favSlotsByInv.Where(kv => kv.Key == Favorite.Hotbar));
@@ -131,7 +133,7 @@ public class Core : ModSystem, IDisposable
 
 		var suitableSourceSlots = new List<VirtualSlot>();
 
-		Utils.WalkNearbyContainers(cApi.World.Player, Radius, container =>
+		Utils.WalkNearbyContainers(cApi!.World.Player, Radius, container =>
 		{
 			suitableSourceSlots.Clear();
 
@@ -188,14 +190,14 @@ public class Core : ModSystem, IDisposable
 		});
 
 		if (hotbarPayload.Count > 0)
-			cChannel.SendPacket(new BulkMoveItemsPacket()
+			cChannel!.SendPacket(new BulkMoveItemsPacket()
 			{
 				Operation = Operation.QuickRefillHotbar,
 				Payload = hotbarPayload.Select(kv => (kv.Key, kv.Value)).ToList()
 			});
 
 		if (backpackPayload.Count > 0)
-			cChannel.SendPacket(new BulkMoveItemsPacket()
+			cChannel!.SendPacket(new BulkMoveItemsPacket()
 			{
 				Operation = Operation.QuickRefillBackpack,
 				Payload = backpackPayload.Select(kv => (kv.Key, kv.Value)).ToList()
@@ -232,7 +234,7 @@ public class Core : ModSystem, IDisposable
 		var nonEmptySlots = new HashSet<VirtualSlot>();
 		var emptySlots = new HashSet<VirtualSlot>();
 
-		Utils.WalkNearbyContainers(cApi.World.Player, Radius, container =>
+		Utils.WalkNearbyContainers(cApi!.World.Player, Radius, container =>
 		{
 			stackableItemIds.Clear();
 			nonEmptySlots.Clear();
@@ -328,7 +330,7 @@ public class Core : ModSystem, IDisposable
 							sourceSlot.StackSize = 0;
 						}
 
-						if (!payload.TryGetValue(destInvPos, out List<SourceDestIds> pairs))
+						if (!payload.TryGetValue(destInvPos, out List<SourceDestIds>? pairs))
 							payload.Add(destInvPos, pairs = []);
 
 						pairs.Add((sourceSlot.Id, destSlot.Id));
@@ -346,7 +348,7 @@ public class Core : ModSystem, IDisposable
 		if (payload.Count == 0)
 			return true;
 
-		cChannel.SendPacket(new BulkMoveItemsPacket()
+		cChannel!.SendPacket(new BulkMoveItemsPacket()
 		{
 			Operation = Operation.QuickStack,
 			Payload = payload.Select(kv => (kv.Key, kv.Value)).ToList()
@@ -407,7 +409,7 @@ public class Core : ModSystem, IDisposable
 		}
 
 		if (successPacket.Payload.Count > 0)
-			sChannel.SendPacket(successPacket, player);
+			sChannel!.SendPacket(successPacket, player);
 	}
 
 	public override void Dispose()
@@ -415,6 +417,7 @@ public class Core : ModSystem, IDisposable
 		if (cApi != null)
 			cApi.Event.LeaveWorld -= Cleanup;
 
+		ChatCommands.Dispose();
 		Favorite?.Dispose();
 		Config = null;
 	}

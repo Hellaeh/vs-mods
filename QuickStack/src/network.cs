@@ -22,9 +22,9 @@ class BulkMoveItemsPacket
 	/// Direction: 
 	/// QuickStack = true - quick stack to nearby inventories
 	/// QuickStack = false - quick refill from nearby inventories
-	public Operation Operation;
+	public required Operation Operation;
 	[ProtoMember(2)]
-	public List<(BlockPos, List<SourceDestIds>)> Payload;
+	public required List<(BlockPos, List<SourceDestIds>)> Payload;
 }
 
 [ProtoContract]

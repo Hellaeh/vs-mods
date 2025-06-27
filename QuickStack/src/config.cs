@@ -63,6 +63,7 @@ public class ClientConfig
 
 		config.Whitelist.Add("chest", new());
 		config.Whitelist.Add("barrel", new());
+		config.Whitelist.Add("crate", new());
 
 		return config;
 	}

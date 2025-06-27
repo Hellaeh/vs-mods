@@ -22,9 +22,10 @@ public class VirtualSlot(ItemSlot slot, int slotId)
 	public InventoryBase Inventory => slot.Inventory;
 }
 
+#pragma warning disable CS8767
 public class VirtualSlotComparer : IEqualityComparer<VirtualSlot>
 {
-	public bool Equals(VirtualSlot x, VirtualSlot y)
+	public bool Equals([DisallowNull] VirtualSlot x, [DisallowNull] VirtualSlot y)
 	{
 		return x.Inventory == y.Inventory && x.Id == y.Id;
 	}
