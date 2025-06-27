@@ -1,0 +1,107 @@
+<p>
+  <strong>
+    <span style="color: #e74c3c;">Requires</span>
+    <a href="https://mods.vintagestory.at/favorite" target="_blank" rel="noopener">Favorite</a>
+    <span style="color: #e74c3c;">mod to function</span>
+  </strong>
+</p>
+
+<p>
+  <strong>
+    <span style="color: #e74c3c;">
+      It is recommended to keep whitelist (default) mode on
+    </span>
+  </strong>
+</p>
+<br />
+
+<h4>Quick Stack:</h4>
+<ul>
+  <li>Scans the content of your inventory, while ignoring favorite items</li>
+  <li>Scans nearby containers in radius (configurable)</li>
+  <li>
+    Tries to put items from your inventory to container according to container content, while prefering already filled
+    slots
+  </li>
+</ul>
+<br />
+
+<h4>Quick Refill:</h4>
+<ul>
+  <li>Scans the content of your inventory, while ignoring non-favorite items</li>
+  <li>Scans nearby containers in radius (confugurable)</li>
+  <li>Tries to refill items from containers to your non-full favorite slots</li>
+</ul>
+<br />
+
+<h4>Usage:</h4>
+<ul>
+  <li>Assign hotkey for Quick Stack in settings (default = X)</li>
+  <li>Assign hotkey for Quick Refill in settings (default = CTRL + X)</li>
+  <li>Set "Radius" in "helquickstackConfigServer.json" (default = 10)</li>
+  <li>
+    Items marked as
+    <a href="https://mods.vintagestory.at/favorite" target="_blank" rel="noopener">Favorite</a>
+    will not stack away on quick stack to nearby inventories
+  </li>
+  <li>
+    Items marked as
+    <a href="https://mods.vintagestory.at/favorite" target="_blank" rel="noopener">Favorite</a>
+    will be refilled on quick refill from nearby inventories
+  </li>
+</ul>
+<br />
+
+<h4>Chat commands:</h4>
+<p>
+  <span style="background: rgba(50, 50, 50, .2);">.quickstack</span>
+  or
+  <span style="background: rgba(50, 50, 50, .2);">.qs</span>
+  - while looking at container will add it, if not already present, to the respective mode list (or remove if present)
+  <br />
+
+  <span style="background: rgba(50, 50, 50, .2);">.qs add</span>
+  - while looking at container will add it to the current mode list
+  <br />
+
+  <span style="background: rgba(50, 50, 50, .2);">.qs remove</span>
+  - while looking at container will remove from the current mode list
+  <br />
+
+  <span style="background: rgba(50, 50, 50, .2);">.qs mode</span>
+  - toggle between blacklist/whitelist modes
+</p>
+<br />
+
+<p>
+  Currently in
+  <strong>alpha</strong>.
+  Expect a lot of bugs.
+  <strong>
+    Feel free to report any bug found in the comments below or on
+    <a href="https://github.com/Hellaeh/vs-mods">github</a>
+  </strong>
+</p>
+<br />
+
+<p>Roadmap:</p>
+<ul>
+  <li>
+    Add visual
+    <span style="text-decoration: line-through;">and sound</span>
+    cue to highlight the container that took the items
+  </li>
+  <li>
+    <span style="text-decoration: line-through;">Blacklist \ Whitelist for containers</span>
+    partially done
+  </li>
+  <li>
+    <span style="text-decoration: line-through;">Refill from containers</span>
+  </li>
+  <li>
+    <span style="text-decoration: line-through;">Make favorite system as a standalone mod</span>
+  </li>
+  <li>
+    More? Write down your wishes in the comments.
+  </li>
+</ul>

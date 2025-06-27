@@ -52,7 +52,7 @@ public static class ChatCommands
 		if (SelectedContainer() is not Container container)
 			return Result.NoContainer;
 
-		var classname = container.Inventory.ClassName;
+		var classname = container.InventoryClassName;
 		var rules = Core.Config!.GetRules();
 
 		if (rules.Remove(classname))
