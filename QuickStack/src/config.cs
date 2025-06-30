@@ -1,5 +1,7 @@
+using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
+
 using Newtonsoft.Json;
 
 using Vintagestory.API.Common;
@@ -68,11 +70,17 @@ public class ClientConfig
 		return config;
 	}
 
-	public int Radius { get; set; } = 10;
+	[JsonIgnore]
+	private int radius = Consts.DefaultRadius;
+	public int Radius
+	{
+		get => radius;
+		set => radius = Math.Min(value, Math.Min(Consts.MaxRadius, Core.SConfig.MaxRadius));
+	}
 
 	public Mode Mode { get; set; } = Mode.Whitelist;
 
-	// Dictionary<InventoryClassName, Rule>
+	// string = inventory classname
 	public Dictionary<string, Rule> Blacklist { get; set; } = [];
 	public Dictionary<string, Rule> Whitelist { get; set; } = [];
 
@@ -83,8 +91,11 @@ public class ClientConfig
 public class ServerConfig
 {
 	[JsonIgnore]
-	public const int DefaultRadius = 10;
-
-	public int MaxRadius { get; set; } = DefaultRadius;
+	private int maxRadius = Consts.MaxRadius;
+	public int MaxRadius
+	{
+		get => maxRadius;
+		set => maxRadius = Math.Min(value, Math.Min((Core.sApi?.Server.Config.MaxChunkRadius ?? 8) * SharedLib.Consts.ChunkSize, Consts.MaxRadius));
+	}
 }
 

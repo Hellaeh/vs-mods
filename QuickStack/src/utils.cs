@@ -21,7 +21,7 @@ public static class BlockEntityContainerExtensiton
 	//         |-----|
 	// 
 	public static bool IsAllowed(this BlockEntityContainer container)
-		=> Core.Config!.GetRules().ContainsKey(container.InventoryClassName) == (Core.Config.Mode == Mode.Whitelist);
+		=> Core.CConfig!.GetRules().ContainsKey(container.InventoryClassName) == (Core.CConfig.Mode == Mode.Whitelist);
 
 	[Obsolete("Use `IsSuitable`. Will be removed in 1.0")]
 	[MethodImpl(MethodImplOptions.AggressiveInlining)]

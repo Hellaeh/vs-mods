@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -15,81 +14,80 @@ using SourceDestIds = (int, int);
 
 namespace HelQuickStack;
 
-public class Core : ModSystem, IDisposable
+public class Core : ModSystem
 {
 	public const string ModId = "helquickstack";
 
-	public static ClientConfig? Config { get; private set; }
-
-	// WARNING: Keep hotkeys IDs as is 
-	private const string quickRefillHK = ModId + "hotkey2";
-	private const string quickStackHK = ModId + "hotkey";
-
-	private const string channel = ModId + "channel";
-	private const string serverConfigFile = ModId + "ConfigServer.json";
-	private const string clientConfigFile = ModId + "ConfigClient.json";
+	public static ClientConfig CConfig { get; set; } = new();
+	public static ServerConfig SConfig { get; set; } = new();
 
 	private readonly AssetLocation SFX_Rattle = new(ModId + ":sounds/rattle");
 
 	// Offset to ignore slots for bags
 	public const int BagsOffset = 4;
 
-	private const int maxRadius = 256;
-	public static int Radius { get; private set; }
-
 	public HelFavorite.Core? Favorite { get; private set; }
 
-	private ICoreClientAPI? cApi;
+	private static ICoreAPI? Api;
+	internal static ICoreClientAPI? cApi => Api as ICoreClientAPI;
+	internal static ICoreServerAPI? sApi => Api as ICoreServerAPI;
+
 	private IClientNetworkChannel? cChannel;
 	private IServerNetworkChannel? sChannel;
 
-	private IInventory backpackInv => cApi!.World.Player.InventoryManager.GetOwnInventory(GlobalConstants.backpackInvClassName);
+	private static IInventory backpackInv => cApi!.World.Player.InventoryManager.GetOwnInventory(GlobalConstants.backpackInvClassName);
 
 	public override void Start(ICoreAPI api)
 	{
-		api.Network.RegisterChannel(channel)
+		Api = api;
+
+		ChatCommands.Register(api);
+
+		api.Network.RegisterChannel(Consts.Channel)
 			.RegisterMessageType<BulkMoveItemsPacket>()
-			.RegisterMessageType<RadiusPacket>()
+			.RegisterMessageType<MaxRadiusPacket>()
 			.RegisterMessageType<SuccessPacket>();
 	}
 
 	public override void StartServerSide(ICoreServerAPI api)
 	{
-		int radius = Math.Min(Helper.LoadConfig<ServerConfig>(api, serverConfigFile).MaxRadius, maxRadius);
+		SConfig = Helper.LoadConfig<ServerConfig>(api, Consts.ServerConfigFile);
+		// reset maxradius with view distance
+		SConfig.MaxRadius = SConfig.MaxRadius;
 
-		var maxViewDistance = api.Server.Config.MaxChunkRadius << Utils.ChunkShift;
+		sChannel = api.Network.GetChannel(Consts.Channel)
+			.SetMessageHandler<BulkMoveItemsPacket>(ServerMoveItems)
+			.SetMessageHandler<MaxRadiusPacket>((sender, packet) =>
+			{
+				if (!sender.HasPrivilege(Privilege.root))
+					return;
 
-		sChannel = api.Network.GetChannel(channel)
-			.SetMessageHandler<BulkMoveItemsPacket>(ServerMoveItems);
+				SConfig.MaxRadius = packet.Payload;
 
-		api.Event.PlayerJoin += player => sChannel.SendPacket(new RadiusPacket() { Payload = Math.Min(radius, maxViewDistance) }, player);
+				foreach (var player in api.World.AllPlayers.Cast<IServerPlayer>())
+					sChannel!.SendPacket<MaxRadiusPacket>(new() { Payload = SConfig.MaxRadius }, player);
+			});
 
-		api.StoreModConfig<ServerConfig>(new() { MaxRadius = radius }, serverConfigFile);
+		api.Event.PlayerJoin += player => sChannel.SendPacket(new MaxRadiusPacket() { Payload = SConfig.MaxRadius }, player);
+		api.Event.ServerRunPhase(EnumServerRunPhase.Shutdown, () => api.StoreModConfig(SConfig, Consts.ServerConfigFile));
 	}
 
 	public override void StartClientSide(ICoreClientAPI api)
 	{
-		Config = Helper.LoadConfig(api, clientConfigFile, ClientConfig.Default());
+		CConfig = Helper.LoadConfig(api, Consts.ClientConfigFile, ClientConfig.Default());
 
-		api.Input.RegisterHotKey(quickRefillHK, Lang.Get(ModId + ":quickrefill"), GlKeys.X, HotkeyType.InventoryHotkeys, ctrlPressed: true);
-		api.Input.RegisterHotKey(quickStackHK, Lang.Get(ModId + ":quickstack"), GlKeys.X, HotkeyType.InventoryHotkeys);
+		api.Input.RegisterHotKey(Consts.QuickRefillHotkeyId, Lang.Get(ModId + ":quickrefill"), GlKeys.X, HotkeyType.InventoryHotkeys, ctrlPressed: true);
+		api.Input.RegisterHotKey(Consts.QuickStackHotkeyId, Lang.Get(ModId + ":quickstack"), GlKeys.X, HotkeyType.InventoryHotkeys);
 
-		api.Input.SetHotKeyHandler(quickRefillHK, _ => QuickRefill());
-		api.Input.SetHotKeyHandler(quickStackHK, _ => QuickStack());
+		api.Input.SetHotKeyHandler(Consts.QuickRefillHotkeyId, QuickRefill);
+		api.Input.SetHotKeyHandler(Consts.QuickStackHotkeyId, QuickStack);
 
-		ChatCommands.Register(api);
-
-		cApi = api;
-		cChannel = api.Network.GetChannel(channel)
-			.SetMessageHandler<RadiusPacket>(packet => Radius = Math.Min(Config.Radius, Math.Min(packet.Payload, maxRadius)))
+		cChannel = api.Network.GetChannel(Consts.Channel)
+			.SetMessageHandler<MaxRadiusPacket>(static packet => (SConfig.MaxRadius, CConfig.Radius) = (packet.Payload, CConfig.Radius))
 			.SetMessageHandler<SuccessPacket>(OnSuccess);
 
 		Favorite = api.ModLoader.GetModSystem<HelFavorite.Core>();
-
-		api.Event.LeaveWorld += Cleanup;
 	}
-
-	private void Cleanup() => cApi!.StoreModConfig(Config, clientConfigFile);
 
 	private void OnSuccess(SuccessPacket packet)
 	{
@@ -98,8 +96,11 @@ public class Core : ModSystem, IDisposable
 			cApi!.World.PlaySoundAt(SFX_Rattle, pos.X + .5, pos.Y, pos.Z + .5);
 	}
 
-	private bool QuickRefill()
+	private bool QuickRefill(KeyCombination key)
 	{
+		if (key.OnKeyUp)
+			return false;
+
 		// On top of a stack will be hotbar slots, if any
 		Dictionary<int, Stack<VirtualSlot>> destSlotsByItemId = [];
 
@@ -133,7 +134,7 @@ public class Core : ModSystem, IDisposable
 
 		var suitableSourceSlots = new List<VirtualSlot>();
 
-		Utils.WalkNearbyContainers(cApi!.World.Player, Radius, container =>
+		Utils.WalkNearbyContainers(cApi!.World.Player, CConfig!.Radius, container =>
 		{
 			suitableSourceSlots.Clear();
 
@@ -206,8 +207,11 @@ public class Core : ModSystem, IDisposable
 		return true;
 	}
 
-	private bool QuickStack()
+	private bool QuickStack(KeyCombination key)
 	{
+		if (key.OnKeyUp)
+			return false;
+
 		Dictionary<int, Stack<VirtualSlot>> sourceSlotsByItemId = [];
 		Dictionary<BlockPos, List<SourceDestIds>> payload = [];
 
@@ -234,7 +238,7 @@ public class Core : ModSystem, IDisposable
 		var nonEmptySlots = new HashSet<VirtualSlot>();
 		var emptySlots = new HashSet<VirtualSlot>();
 
-		Utils.WalkNearbyContainers(cApi!.World.Player, Radius, container =>
+		Utils.WalkNearbyContainers(cApi!.World.Player, CConfig!.Radius, container =>
 		{
 			stackableItemIds.Clear();
 			nonEmptySlots.Clear();
@@ -414,11 +418,8 @@ public class Core : ModSystem, IDisposable
 
 	public override void Dispose()
 	{
-		if (cApi != null)
-			cApi.Event.LeaveWorld -= Cleanup;
-
-		ChatCommands.Dispose();
+		cApi?.StoreModConfig(CConfig, Consts.ClientConfigFile);
 		Favorite?.Dispose();
-		Config = null;
+		Api = null;
 	}
 }

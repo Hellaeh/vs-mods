@@ -31,6 +31,8 @@
     <Reference Include="$(VINTAGE_STORY)/VintagestoryAPI.dll">
       <Private>false</Private>
     </Reference>
+
+    <Compile Include="../SharedLib/src/consts.cs" />
   </ItemGroup>
 
   <ItemGroup>

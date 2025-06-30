@@ -38,7 +38,6 @@
 <ul>
   <li>Assign hotkey for Quick Stack in settings (default = X)</li>
   <li>Assign hotkey for Quick Refill in settings (default = CTRL + X)</li>
-  <li>Set "Radius" in "helquickstackConfigServer.json" (default = 10)</li>
   <li>
     Items marked as
     <a href="https://mods.vintagestory.at/favorite" target="_blank" rel="noopener">Favorite</a>
@@ -52,8 +51,45 @@
 </ul>
 <br />
 
+<h4>Server Config:</h4>
+<ul>
+  <li>
+    <strong>MaxRadius</strong>
+    - enforces a limit on <strong>Radius</strong>, keep it reasonable (hard cap is 256)
+  </li>
+</ul>
+<h4>Client Config:</h4>
+<ul>
+  <li>
+    <strong>Radius</strong>
+    - how far the mod should scan for containers, limited by <strong>MaxRadius</strong>
+  </li>
+  <li>
+    <strong>Mode</strong>
+    <ul>
+      <li><strong>0</strong> Whitelist</li>
+      <li><strong>1</strong> Blacklist</li>
+    </ul>
+  </li>
+  <li>
+    <strong>Whitelist</strong>
+    - a list of whitelisted containers, use chat commands to add/remove container
+  </li>
+  <li>
+    <strong>Blacklist</strong>
+    - a list of blacklisted containers, use chat commands to add/remove container
+  </li>
+</ul>
+<br />
+
 <h4>Chat commands:</h4>
 <p>
+  <span style="background: rgba(50, 50, 50, .2);">/quickstack maxradius</span>
+  or
+  <span style="background: rgba(50, 50, 50, .2);">/qs maxradius</span>
+  - sets or gets "MaxRadius" (need to be a root)
+  <br />
+
   <span style="background: rgba(50, 50, 50, .2);">.quickstack</span>
   or
   <span style="background: rgba(50, 50, 50, .2);">.qs</span>
@@ -70,6 +106,10 @@
 
   <span style="background: rgba(50, 50, 50, .2);">.qs mode</span>
   - toggle between blacklist and whitelist modes
+  <br />
+
+  <span style="background: rgba(50, 50, 50, .2);">.qs radius</span>
+  - sets or gets "Radius"
 </p>
 <br />
 

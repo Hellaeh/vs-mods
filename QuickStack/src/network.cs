@@ -28,7 +28,7 @@ class BulkMoveItemsPacket
 }
 
 [ProtoContract]
-class RadiusPacket
+class MaxRadiusPacket
 {
 	[ProtoMember(1)]
 	public int Payload;
