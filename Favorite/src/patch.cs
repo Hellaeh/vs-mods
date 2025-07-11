@@ -9,6 +9,13 @@ using Vintagestory.Common;
 
 namespace HelFavorite;
 
+// Disable unused methods warning
+#pragma warning disable IDE0051
+// Disable unused parameters warning
+#pragma warning disable IDE0060
+// Disable populate switch statement false positive
+#pragma warning disable IDE0072
+
 [HarmonyPatch]
 class InventoryManagerPatch
 {
@@ -69,9 +76,9 @@ class GuiDialogInventoryPatch
 			{
 				var shouldRetry = false;
 
-				for (int backpackSlotId = Core.BagsOffset; backpackSlotId < Core.Instance.Backpack.Count; ++backpackSlotId)
+				for (int backpackSlotId = Core.BagsOffset; backpackSlotId < Core.Instance.GenericInventories[0].Count; ++backpackSlotId)
 				{
-					var backpackSlot = Core.Instance.Backpack[backpackSlotId];
+					var backpackSlot = Core.Instance.GenericInventories[0][backpackSlotId];
 
 					if (backpackSlot.IsFavorite(backpackSlotId))
 						continue;
@@ -179,6 +186,7 @@ class InventoryBasePatch
 		var inv = __instance;
 		__state = null;
 
+		// This should not be possible, but oh well
 		if (inv.Api.Side == EnumAppSide.Server)
 			return true;
 

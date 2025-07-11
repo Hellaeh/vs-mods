@@ -2,9 +2,9 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using System.Runtime.CompilerServices;
 
 using HarmonyLib;
+using SharedLib;
 
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
@@ -26,23 +26,25 @@ public class Core : ModSystem
 	private Harmony harmony;
 
 	// Favorite slots per savefile
-	private string FavoriteSlotsFile => ModId + "/" + Api.World.SavegameIdentifier + ".json";
+	private string favoriteSlotsFile => ModId + "/" + Api.World.SavegameIdentifier + ".json";
 
 	/// <summary>Offset to ignore slots for bags</summary>
 	public const int BagsOffset = 4;
 
-	public IInventory Backpack { get; private set; }
 	public IInventory CraftingGrid { get; private set; }
 	public IInventory Hotbar { get; private set; }
 	public IInventory Mouse { get; private set; }
 
-	private ClientConfig config;
+	public List<IInventory> GenericInventories { get; private set; } = [];
+
+	public static ClientConfig Config { get; private set; }
 
 	/// <summary>
 	/// Color currenly in use to mark item as favorite.
 	/// Read from config
 	/// </summary>
-	public string Color => config.FavoriteColor;
+	[Obsolete("Use `Config.FavoriteColor`")]
+	public string Color => Config.FavoriteColor;
 
 	/// <summary>A collection of slot indices by inventory</summary>
 	public FavoriteSlots FavoriteSlots { get; private set; }
@@ -74,7 +76,7 @@ public class Core : ModSystem
 		harmony = new(ModId);
 		harmony.PatchAll();
 
-		api.Input.RegisterHotKey(hotkey, Lang.Get(ModId + ":hotkey"), GlKeys.AltLeft, HotkeyType.InventoryHotkeys);
+		api.Input.RegisterHotKey(hotkey, Lang.Get(ModId + ":hotkey"), GlKeys.Unknown, HotkeyType.InventoryHotkeys);
 
 		api.Event.LevelFinalize += Init;
 		api.Event.LeaveWorld += Cleanup;
@@ -82,7 +84,7 @@ public class Core : ModSystem
 		api.Event.HotkeysChanged += OnHotkeyChanged;
 		OnHotkeyChanged();
 
-		config = Helper.LoadConfig<ClientConfig>(Api, clientConfigFile);
+		Config = ConfigLoader.LoadConfig<ClientConfig>(Api, clientConfigFile);
 	}
 
 	private void OnHotkeyChanged() => hotkeyCode = Api.Input.GetHotKeyByCode(hotkey).CurrentMapping.KeyCode;
@@ -91,13 +93,14 @@ public class Core : ModSystem
 	{
 		var player = Api.World.Player;
 
-		Backpack = player.InventoryManager.GetOwnInventory(GlobalConstants.backpackInvClassName);
 		CraftingGrid = player.InventoryManager.GetOwnInventory(GlobalConstants.craftingInvClassName);
 		Hotbar = player.InventoryManager.GetOwnInventory(GlobalConstants.hotBarInvClassName);
 		Mouse = player.InventoryManager.GetOwnInventory(GlobalConstants.mousecursorInvClassName);
 
+		GenericInventories.Add(player.InventoryManager.GetOwnInventory(GlobalConstants.backpackInvClassName));
+
 		FavoriteSlots = new(
-			Helper.LoadConfig<FavoriteSlotsConfig>(Api, FavoriteSlotsFile).SlotsByInventory
+			ConfigLoader.LoadConfig<FavoriteSlotsConfig>(Api, favoriteSlotsFile).SlotsByInventory
 				.Select(kv => new KeyValuePair<IInventory, HashSet<int>>(player.InventoryManager.GetOwnInventory(kv.Key), [.. kv.Value]))
 				.Where(kv => kv.Key != null)
 				.ToList()
@@ -130,15 +133,15 @@ public class Core : ModSystem
 			};
 		}
 
-		Backpack.SlotModified += OnModified(Backpack);
+		GenericInventories.ForEach(inv => inv.SlotModified += OnModified(inv));
 		CraftingGrid.SlotModified += OnModified(CraftingGrid);
 		Hotbar.SlotModified += OnModified(Hotbar);
 	}
 
 	private void Cleanup()
 	{
-		Api.StoreModConfig(config, clientConfigFile);
-		Api.StoreModConfig(new FavoriteSlotsConfig() { SlotsByInventory = FavoriteSlots.ToDictionary() }, FavoriteSlotsFile);
+		Api.StoreModConfig(Config, clientConfigFile);
+		Api.StoreModConfig(new FavoriteSlotsConfig() { SlotsByInventory = FavoriteSlots.ToDictionary() }, favoriteSlotsFile);
 	}
 
 	private void OnMouseDown(MouseEvent e)
@@ -161,7 +164,7 @@ public class Core : ModSystem
 
 		var slotId = slot.Inventory.GetSlotId(slot);
 
-		if (slot.Inventory == Backpack && slotId < BagsOffset)
+		if (slot.Inventory == GenericInventories[0] && slotId < BagsOffset)
 			return;
 
 		slot.TryToggleFavorite(slotId);
@@ -215,6 +218,7 @@ public class Core : ModSystem
 		Api.Event.HotkeysChanged -= OnHotkeyChanged;
 
 		Instance = null;
+		Config = null;
 
 		harmony.UnpatchAll(ModId);
 	}
@@ -231,85 +235,4 @@ public class FavoriteSlots(List<KeyValuePair<IInventory, HashSet<int>>> slotsByI
 	IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 }
 
-public static class ItemSlotExtension
-{
-	/// <summary>
-	/// Checks if slot can be marked as favorite
-	/// </summary>
-	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	public static bool CanFavorite(this ItemSlot slot) =>
-		Core.Instance.FavoriteSlots[slot.Inventory] != null;
 
-	/// <summary>
-	/// Checks if slot is favorite
-	/// </summary>
-	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	public static bool IsFavorite(this ItemSlot slot, int? slotId = null)
-	{
-		var inv = slot.Inventory;
-		var favSlots = Core.Instance.FavoriteSlots[inv];
-
-		return favSlots != null && favSlots.Contains(slotId ?? inv.GetSlotId(slot));
-	}
-
-	/// <summary>
-	/// Will try to mark slot as favorite. Returns: `true` if marked or already favorite, otherwise `false`
-	/// </summary>
-	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	public static bool TryMarkAsFavorite(this ItemSlot slot, int? slotId = null)
-	{
-		var inv = slot.Inventory;
-		var favSlots = Core.Instance.FavoriteSlots[inv];
-
-		if (favSlots == null)
-			return false;
-
-		slot.HexBackgroundColor = Core.Instance.Color;
-
-		favSlots.Add(slotId ?? inv.GetSlotId(slot));
-
-		return true;
-	}
-
-	/// <summary>
-	/// Will try to unmark slot as favorite. Returns: `true` if unmarked or already non-favorite, otherwise `false`
-	/// </summary>
-	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	public static bool TryUnmarkAsFavorite(this ItemSlot slot, int? slotId = null)
-	{
-		var inv = slot.Inventory;
-		var favSlots = Core.Instance.FavoriteSlots[inv];
-
-		if (favSlots == null)
-			return false;
-
-		if (slot.HexBackgroundColor == Core.Instance.Color)
-			slot.HexBackgroundColor = null;
-
-		favSlots.Remove(slotId ?? inv.GetSlotId(slot));
-
-		return true;
-	}
-
-	/// <summary>
-	/// Will update favorite slot
-	/// </summary>
-	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	public static void UpdateFavorite(this ItemSlot slot, int? slotId = null)
-	{
-		if (!slot.IsFavorite(slotId))
-			return;
-
-		if (slot.Empty)
-			slot.TryUnmarkAsFavorite(slotId);
-		else
-			slot.TryMarkAsFavorite(slotId);
-	}
-
-	/// <summary>
-	/// Toggles slot between favorite and normal. Returns: `true` if operation was successful, otherwise `false`
-	/// </summary>
-	[MethodImpl(MethodImplOptions.AggressiveInlining)]
-	public static bool TryToggleFavorite(this ItemSlot slot, int? slotId = null) =>
-		slot.IsFavorite(slotId) ? slot.TryUnmarkAsFavorite(slotId) : slot.TryMarkAsFavorite(slotId);
-}
