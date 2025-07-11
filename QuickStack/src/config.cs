@@ -4,35 +4,7 @@ using System.Runtime.CompilerServices;
 
 using Newtonsoft.Json;
 
-using Vintagestory.API.Common;
-
 namespace HelQuickStack;
-
-public static class Helper
-{
-	public static T Inner<T>(ICoreAPI api, string filename, T init)
-		where T : new()
-	{
-		T config;
-
-		try
-		{
-			config = api.LoadModConfig<T>(filename) ?? init;
-		}
-		catch
-		{
-			config = init;
-		}
-
-		return config;
-	}
-
-	public static T LoadConfig<T>(ICoreAPI api, string filename)
-		where T : new() => Inner<T>(api, filename, new());
-
-	public static T LoadConfig<T>(ICoreAPI api, string filename, T def)
-		where T : new() => Inner(api, filename, def);
-}
 
 public enum Mode
 {

@@ -33,6 +33,7 @@
     </Reference>
 
     <Compile Include="../SharedLib/src/consts.cs" />
+    <Compile Include="../SharedLib/src/config.cs" />
   </ItemGroup>
 
   <ItemGroup>

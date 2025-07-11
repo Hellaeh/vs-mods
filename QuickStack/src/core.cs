@@ -1,7 +1,10 @@
+using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Linq;
 
 using HelFavorite;
+using SharedLib;
 
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
@@ -51,7 +54,7 @@ public class Core : ModSystem
 
 	public override void StartServerSide(ICoreServerAPI api)
 	{
-		SConfig = Helper.LoadConfig<ServerConfig>(api, Consts.ServerConfigFile);
+		SConfig = ConfigLoader.LoadConfig<ServerConfig>(api, Consts.ServerConfigFile);
 		// reset maxradius with view distance
 		SConfig.MaxRadius = SConfig.MaxRadius;
 
@@ -74,10 +77,10 @@ public class Core : ModSystem
 
 	public override void StartClientSide(ICoreClientAPI api)
 	{
-		CConfig = Helper.LoadConfig(api, Consts.ClientConfigFile, ClientConfig.Default());
+		CConfig = ConfigLoader.LoadConfig(api, Consts.ClientConfigFile, ClientConfig.Default());
 
-		api.Input.RegisterHotKey(Consts.QuickRefillHotkeyId, Lang.Get(ModId + ":quickrefill"), GlKeys.X, HotkeyType.InventoryHotkeys, ctrlPressed: true);
-		api.Input.RegisterHotKey(Consts.QuickStackHotkeyId, Lang.Get(ModId + ":quickstack"), GlKeys.X, HotkeyType.InventoryHotkeys);
+		api.Input.RegisterHotKey(Consts.QuickRefillHotkeyId, Lang.Get(ModId + ":quickrefill"), GlKeys.Unknown, HotkeyType.InventoryHotkeys, ctrlPressed: true);
+		api.Input.RegisterHotKey(Consts.QuickStackHotkeyId, Lang.Get(ModId + ":quickstack"), GlKeys.Unknown, HotkeyType.InventoryHotkeys);
 
 		api.Input.SetHotKeyHandler(Consts.QuickRefillHotkeyId, QuickRefill);
 		api.Input.SetHotKeyHandler(Consts.QuickStackHotkeyId, QuickStack);
@@ -87,6 +90,9 @@ public class Core : ModSystem
 			.SetMessageHandler<SuccessPacket>(OnSuccess);
 
 		Favorite = api.ModLoader.GetModSystem<HelFavorite.Core>();
+
+		if (Favorite == null)
+			throw new ArgumentNullException($"Failed to load - {Favorite}");
 	}
 
 	private void OnSuccess(SuccessPacket packet)
@@ -108,12 +114,12 @@ public class Core : ModSystem
 		Dictionary<BlockPos, List<SourceDestIds>> backpackPayload = [];
 
 		var favSlotsByInv = Favorite!.FavoriteSlots;
-		var favSlotsFromHotbarAndBackpack = favSlotsByInv
-			.Where(kv => kv.Key == Favorite.Backpack)
+		var favSlotsFromHotbarAndGeneric = favSlotsByInv
+			.Where(kv => Favorite.GenericInventories.Contains(kv.Key))
 			.Concat(favSlotsByInv.Where(kv => kv.Key == Favorite.Hotbar));
 
 		// Get non full favorite slots
-		foreach ((var inv, var favSlots) in favSlotsFromHotbarAndBackpack)
+		foreach ((var inv, var favSlots) in favSlotsFromHotbarAndGeneric)
 			foreach (var slotId in favSlots)
 			{
 				var slot = inv[slotId];

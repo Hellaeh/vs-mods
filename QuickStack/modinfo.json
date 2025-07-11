@@ -6,9 +6,9 @@
     "Hellaeh"
   ],
   "description": "A Quick Stack functionality for the game",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "dependencies": {
-    "game": "1.20.7",
-    "helfavorite": "0.3.0"
+    "game": "1.20.12",
+    "helfavorite": "0.4.0"
   }
 }
