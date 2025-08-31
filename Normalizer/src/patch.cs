@@ -52,7 +52,7 @@ public class Patch
 		var count = 0;
 		ItemSlot match = null;
 
-		// Quick check if it's out recipe
+		// Quick check if it's our recipe
 		foreach (var slot in ingredients)
 		{
 			if (slot.Empty)
@@ -67,7 +67,10 @@ public class Patch
 		if (match == null || count > 1)
 			return true;
 
-		var materials = (match.Itemstack.Attributes["materials"] as IntArrayAttribute).value;
+		if(match.Itemstack.Attributes["materials"] is not IntArrayAttribute arr)
+			return true;
+
+		var materials = arr.value;
 		var initialBlock = player.Entity.Api.World.GetBlock(materials[0]);
 
 		// First id is initial block, which could be a variant `ew`, `ud` etc, that should not be obtained in survival

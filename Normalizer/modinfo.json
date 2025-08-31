@@ -1,14 +1,14 @@
 {
-  "type": "code",
-  "modid": "helnormalizer",
-  "name": "Normalizer",
-  "side": "server",
-  "authors": [
-    "Hellaeh"
-  ],
-  "description": "A simple recipe to revert chiseled blocks back to normal",
-  "version": "2.0.0",
-  "dependencies": {
-    "game": "1.19.0"
-  }
+	"type": "code",
+	"modid": "helnormalizer",
+	"name": "Normalizer",
+	"side": "server",
+	"authors": [
+		"Hellaeh"
+	],
+	"description": "A simple recipe to revert chiseled blocks back to normal",
+	"version": "2.0.1",
+	"dependencies": {
+		"game": "1.21.0"
+	}
 }
