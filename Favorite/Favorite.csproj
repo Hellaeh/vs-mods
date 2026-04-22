@@ -5,6 +5,7 @@
 		<OutputPath Condition="'$(Configuration)'!='Release'">../vsdata/mods/$(AssemblyName)</OutputPath>
 		<OutputPath Condition="'$(Configuration)'=='Release'">release</OutputPath>
 		<TargetFramework>net10.0</TargetFramework>
+		<Nullable>enable</Nullable>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -18,7 +19,7 @@
 			<Private>false</Private>
 		</Reference>
 
-		<Compile Include="../SharedLib/*/*.cs" LinkBase="Shared" />
+		<Compile Include="../SharedLib/src/config.cs" LinkBase="Shared" />
 	</ItemGroup>
 
 	<ItemGroup>

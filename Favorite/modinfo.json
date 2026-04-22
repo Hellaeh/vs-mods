@@ -6,7 +6,7 @@
 	"requiredOnServer": false,
 	"authors": ["Hellaeh"],
 	"description": "Favorite your items and never lose em",
-	"version": "0.4.1",
+	"version": "0.4.2",
 	"dependencies": {
 		"game": "1.22.0"
 	}

@@ -13,8 +13,6 @@ namespace HelFavorite;
 #pragma warning disable IDE0051
 // Disable unused parameters warning
 #pragma warning disable IDE0060
-// Disable populate switch statement false positive
-#pragma warning disable IDE0072
 
 [HarmonyPatch]
 class InventoryManagerPatch
@@ -151,7 +149,7 @@ class InventoryBasePatch
 		if (!isDirectMerge)
 			return false;
 
-		var matchItemstack = !targetEmpty && targetSlot.Itemstack.Satisfies(mouseSlot.Itemstack);
+		var matchItemstack = !targetEmpty && targetSlot.Itemstack!.Satisfies(mouseSlot.Itemstack);
 
 		if (mouseFavorite) // mouse is favorite, target is not
 		{

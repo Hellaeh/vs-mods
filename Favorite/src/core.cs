@@ -14,16 +14,16 @@ namespace HelFavorite;
 
 public class Core : ModSystem
 {
-	public static Core Instance { get; private set; }
+	public static Core Instance { get; private set; } = null!;
 
-	public ICoreClientAPI Api { get; private set; }
+	public ICoreClientAPI Api { get; private set; } = null!;
 
 	public const string ModId = "helfavorite";
 
 	private const string hotkey = ModId + "hotkey";
 	private const string clientConfigFile = ModId + "/ConfigClient.json";
 
-	private Harmony harmony;
+	private Harmony harmony = null!;
 
 	// Favorite slots per savefile
 	private string favoriteSlotsFile => ModId + "/" + Api.World.SavegameIdentifier + ".json";
@@ -31,13 +31,13 @@ public class Core : ModSystem
 	/// <summary>Offset to ignore slots for bags</summary>
 	public const int BagsOffset = 4;
 
-	public IInventory CraftingGrid { get; private set; }
-	public IInventory Hotbar { get; private set; }
-	public IInventory Mouse { get; private set; }
+	public IInventory CraftingGrid { get; private set; } = null!;
+	public IInventory Hotbar { get; private set; } = null!;
+	public IInventory Mouse { get; private set; } = null!;
 
 	public List<IInventory> GenericInventories { get; private set; } = [];
 
-	public static ClientConfig Config { get; private set; }
+	public static ClientConfig Config { get; private set; } = new();
 
 	/// <summary>
 	/// Color currenly in use to mark item as favorite.
@@ -47,7 +47,7 @@ public class Core : ModSystem
 	public string Color => Config.FavoriteColor;
 
 	/// <summary>A collection of slot indices by inventory</summary>
-	public FavoriteSlots FavoriteSlots { get; private set; }
+	public FavoriteSlots FavoriteSlots { get; private set; } = null!;
 
 	/// <summary>An abstraction for `FavoriteSlots[Mouse].Contains(0)`</summary>
 	public bool MouseFavorite
@@ -100,10 +100,9 @@ public class Core : ModSystem
 		GenericInventories.Add(player.InventoryManager.GetOwnInventory(GlobalConstants.backpackInvClassName));
 
 		FavoriteSlots = new(
-			ConfigLoader.LoadConfig<FavoriteSlotsConfig>(Api, favoriteSlotsFile).SlotsByInventory
+			[.. ConfigLoader.LoadConfig<FavoriteSlotsConfig>(Api, favoriteSlotsFile).SlotsByInventory
 				.Select(kv => new KeyValuePair<IInventory, HashSet<int>>(player.InventoryManager.GetOwnInventory(kv.Key), [.. kv.Value]))
-				.Where(kv => kv.Key != null)
-				.ToList()
+				.Where(kv => kv.Key != null)]
 		);
 
 		Update();
@@ -120,7 +119,7 @@ public class Core : ModSystem
 			int lastSlotId = -1;
 			long lastTime = 0;
 
-			return (int slotId) =>
+			return slotId =>
 			{
 				var now = Instance.Api.ElapsedMilliseconds;
 
@@ -176,7 +175,7 @@ public class Core : ModSystem
 
 	private void HijackDropItemHotkeyHandler()
 	{
-		foreach (var hotkey in (string[])(["dropitem", "dropitems"]))
+		foreach (var hotkey in (string[])["dropitem", "dropitems"])
 		{
 			var originalHandler = Api.Input.GetHotKeyByCode(hotkey).Handler;
 
@@ -197,10 +196,10 @@ public class Core : ModSystem
 
 	// TODO: Remove in 1.0.0
 	[Obsolete("`UpdateFavorite` is renamed to `Update` and will be removed in 1.0.0")]
-	public void UpdateFavorite(IInventory inv = null) => Update(inv);
+	public void UpdateFavorite(IInventory? inv = null) => Update(inv);
 
 	/// <summary>Will forcefully update favorite slots and VFX</summary>
-	public void Update(IInventory forInv = null)
+	public void Update(IInventory? forInv = null)
 	{
 		foreach ((var inv, var _) in FavoriteSlots.Where(kv => forInv == null || kv.Key == forInv))
 			for (int slotId = 0; slotId < inv.Count; ++slotId)
@@ -217,8 +216,8 @@ public class Core : ModSystem
 
 		Api.Event.HotkeysChanged -= OnHotkeyChanged;
 
-		Instance = null;
-		Config = null;
+		Instance = null!;
+		Config = null!;
 
 		harmony.UnpatchAll(ModId);
 	}
