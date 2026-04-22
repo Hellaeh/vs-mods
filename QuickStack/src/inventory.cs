@@ -8,7 +8,7 @@ namespace HelQuickStack;
 // Currently used as helper in stacking algorithm
 public class VirtualSlot(ItemSlot slot, int slotId)
 {
-	public ItemStack Itemstack { get; set; } = slot.Itemstack;
+	public ItemStack Itemstack { get; set; } = slot.Itemstack!;
 
 	public int Id { get; } = slotId;
 	public int ItemId => Itemstack?.Id ?? 0;
