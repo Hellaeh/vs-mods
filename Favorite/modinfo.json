@@ -1,15 +1,13 @@
 {
-  "type": "code",
-  "modid": "helfavorite",
-  "name": "Favorite",
-  "side": "universal",
-  "requiredOnServer": false,
-  "authors": [
-    "Hellaeh"
-  ],
-  "description": "Favorite your items and never lose em",
-  "version": "0.4.0",
-  "dependencies": {
-    "game": "1.20.12"
-  }
+	"type": "code",
+	"modid": "helfavorite",
+	"name": "Favorite",
+	"side": "universal",
+	"requiredOnServer": false,
+	"authors": ["Hellaeh"],
+	"description": "Favorite your items and never lose em",
+	"version": "0.4.1",
+	"dependencies": {
+		"game": "1.22.0"
+	}
 }
